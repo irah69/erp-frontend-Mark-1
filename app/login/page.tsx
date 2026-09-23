@@ -15,7 +15,7 @@ const slides: SliderImage[] = [
     caption: "Attendance, marks, fees and timetable — always current.",
   },
   {
-    src: "/school2.jpg",
+    src: "/school2.png",
     title: "Results the moment they publish",
     caption: "No queues, no notice boards. Internals land straight on your dashboard.",
   },
