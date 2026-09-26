@@ -11,13 +11,14 @@ type Grade = {
   id: number;
   academic_year: string;
   grade: string;
+  section_id: number | null;
+  staff_id: number | null;
   status: string;
 };
 
 type Section = {
   id: number;
   section: string;
-  staff_id: number | null;
 };
 
 type StaffOption = {
@@ -30,23 +31,25 @@ type StaffOption = {
 type GradeForm = {
   academic_year: string;
   grade: string;
+  section_id: string;
+  staff_id: string;
   status: string;
 };
 
 type SectionForm = {
   section: string;
-  staff_id: string;
 };
 
 const emptyGradeForm: GradeForm = {
   academic_year: "",
   grade: "",
+  section_id: "",
+  staff_id: "",
   status: "active",
 };
 
 const emptySectionForm: SectionForm = {
   section: "",
-  staff_id: "",
 };
 
 /* =========================
@@ -171,6 +174,8 @@ export default function AcademicPage() {
     setGradeForm({
       academic_year: grade.academic_year,
       grade: grade.grade,
+      section_id: grade.section_id !== null ? String(grade.section_id) : "",
+      staff_id: grade.staff_id !== null ? String(grade.staff_id) : "",
       status: grade.status,
     });
 
@@ -196,6 +201,8 @@ export default function AcademicPage() {
     const payload = {
       academic_year: gradeForm.academic_year,
       grade: gradeForm.grade,
+      section_id: gradeForm.section_id ? Number(gradeForm.section_id) : null,
+      staff_id: gradeForm.staff_id ? Number(gradeForm.staff_id) : null,
       status: gradeForm.status,
     };
 
@@ -283,10 +290,6 @@ export default function AcademicPage() {
 
     setSectionForm({
       section: section.section,
-      staff_id:
-        section.staff_id !== null
-          ? String(section.staff_id)
-          : "",
     });
 
     setSectionFormOpen(true);
@@ -310,9 +313,6 @@ export default function AcademicPage() {
 
     const payload = {
       section: sectionForm.section,
-      staff_id: sectionForm.staff_id
-        ? Number(sectionForm.staff_id)
-        : null,
     };
 
     try {
@@ -369,14 +369,19 @@ export default function AcademicPage() {
      FILTERING
   ===================================================== */
 
-  const filteredGrades = grades.filter((grade) =>
-    `${grade.academic_year} ${grade.grade} ${grade.status}`
+  const sectionLookup = new Map(sections.map((section) => [section.id, section]));
+
+  const filteredGrades = grades.filter((grade) => {
+    const sectionName = sectionLookup.get(grade.section_id ?? -1)?.section ?? "";
+    const staffName = staffMembers.find((staff) => staff.id === grade.staff_id)?.name ?? "";
+
+    return `${grade.academic_year} ${grade.grade} ${sectionName} ${staffName} ${grade.status}`
       .toLowerCase()
-      .includes(gradeSearch.toLowerCase())
-  );
+      .includes(gradeSearch.toLowerCase());
+  });
 
   const filteredSections = sections.filter((section) =>
-    `${section.section} ${section.staff_id ?? ""}`
+    `${section.section}`
       .toLowerCase()
       .includes(sectionSearch.toLowerCase())
   );
@@ -526,6 +531,48 @@ export default function AcademicPage() {
               </label>
 
               <label>
+                Section
+
+                <select
+                  value={gradeForm.section_id}
+                  onChange={(event) =>
+                    setGradeForm({
+                      ...gradeForm,
+                      section_id: event.target.value,
+                    })
+                  }
+                >
+                  <option value="">Select a section</option>
+                  {sections.map((section) => (
+                    <option key={section.id} value={String(section.id)}>
+                      {section.section}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label>
+                Staff
+
+                <select
+                  value={gradeForm.staff_id}
+                  onChange={(event) =>
+                    setGradeForm({
+                      ...gradeForm,
+                      staff_id: event.target.value,
+                    })
+                  }
+                >
+                  <option value="">Select a staff member</option>
+                  {staffMembers.map((staff) => (
+                    <option key={staff.id} value={String(staff.id)}>
+                      {staff.name} (ID: {staff.id})
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label>
                 Status
 
                 <select
@@ -586,6 +633,8 @@ export default function AcademicPage() {
                   <th>ID</th>
                   <th>Academic Year</th>
                   <th>Grade</th>
+                  <th>Section</th>
+                  <th>Staff</th>
                   <th>Status</th>
                   <th>Actions</th>
                 </tr>
@@ -612,6 +661,14 @@ export default function AcademicPage() {
                       >
                         {grade.grade}
                       </button>
+                    </td>
+
+                    <td>
+                      {sectionLookup.get(grade.section_id ?? -1)?.section ?? "—"}
+                    </td>
+
+                    <td>
+                      {staffMembers.find((staff) => staff.id === grade.staff_id)?.name ?? "—"}
                     </td>
 
                     <td>
@@ -706,6 +763,20 @@ export default function AcademicPage() {
               Grade
               <strong>
                 {selectedGrade.grade}
+              </strong>
+            </span>
+
+            <span>
+              Section
+              <strong>
+                {sectionLookup.get(selectedGrade.section_id ?? -1)?.section ?? "—"}
+              </strong>
+            </span>
+
+            <span>
+              Staff
+              <strong>
+                {staffMembers.find((staff) => staff.id === selectedGrade.staff_id)?.name ?? "—"}
               </strong>
             </span>
 
@@ -815,27 +886,6 @@ export default function AcademicPage() {
                 />
               </label>
 
-              <label>
-                Staff
-
-                <select
-                  value={sectionForm.staff_id}
-                  onChange={(event) =>
-                    setSectionForm({
-                      ...sectionForm,
-                      staff_id: event.target.value,
-                    })
-                  }
-                >
-                  <option value="">Select a staff member</option>
-                  {staffMembers.map((staff) => (
-                    <option key={staff.id} value={String(staff.id)}>
-                      {staff.name} (ID: {staff.id})
-                    </option>
-                  ))}
-                </select>
-              </label>
-
             </div>
 
             <button
@@ -874,7 +924,6 @@ export default function AcademicPage() {
                 <tr>
                   <th>ID</th>
                   <th>Section</th>
-                  <th>Staff ID</th>
                   <th>Actions</th>
                 </tr>
               </thead>
@@ -896,10 +945,6 @@ export default function AcademicPage() {
                       >
                         {section.section}
                       </button>
-                    </td>
-
-                    <td>
-                      {section.staff_id ?? "—"}
                     </td>
 
                     <td>
@@ -975,13 +1020,6 @@ export default function AcademicPage() {
               Section
               <strong>
                 {selectedSection.section}
-              </strong>
-            </span>
-
-            <span>
-              Staff ID
-              <strong>
-                {selectedSection.staff_id ?? "—"}
               </strong>
             </span>
 

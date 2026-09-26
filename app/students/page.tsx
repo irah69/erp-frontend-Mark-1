@@ -26,7 +26,6 @@ type GradeOption = {
 type SectionOption = {
   id: number;
   section: string;
-  staff_id: number | null;
 };
 
 type StudentForm = {
