@@ -222,9 +222,9 @@ export default function StudentsPage() {
               Admission date
               <input required type="date" value={form.admission_date} onChange={(event) => setForm({ ...form, admission_date: event.target.value })} />
             </label>
-
-            <label>
-              Grade
+          
+<label>
+ Grade
               <select value={form.grade} onChange={(event) => setForm({ ...form, grade: event.target.value })}>
                 <option value="">Select a grade</option>
                 {availableGrades.map((grade) => (
