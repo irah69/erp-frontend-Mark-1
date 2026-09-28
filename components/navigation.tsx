@@ -9,6 +9,8 @@ import { checkSession, logout, type CurrentUser } from "../lib/auth";
 const navigationItems = [
   { href: "/dashboard", label: "Dashboard" },
   { href: "/students", label: "Students" },
+  { href: "/scheduling", label: "Scheduling" },
+  { href: "/attendance", label: "Attendance" },
   { href: "/users", label: "Users" },
 ];
 
