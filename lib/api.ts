@@ -124,19 +124,39 @@ export type StudentRecord = {
   status?: string;
 };
 
+// Row from GET /api/grades. One row = one class in one academic year,
+// paired with its section (section_id may be null if none is assigned).
+export type GradeOption = {
+  id: number;
+  academic_year: string;
+  grade: string;
+  section_id?: number | null;
+  staff_id?: number | null;
+  status?: string;
+};
+
 /* =========================================================
    TIMETABLE
-   Subject and staff are NO LONGER stored here.
+   One row = one weekly slot (day + period) for a class + section.
+   Opening a timetable creates a 6 x 6 grid of these rows.
+   default_subject_id / default_staff_id are the weekly assignment;
+   dated ClassSession rows are generated from them.
    ========================================================= */
 
 export type TimetableRecord = {
   id: number;
   section_id: number;
+  grade_id?: number | null;
   day_of_week: number;
+  period_number?: number | null;
   start_time: string;
   end_time: string;
   room?: string | null;
   status: string;
+  default_subject_id?: number | null;
+  default_staff_id?: number | null;
+  valid_from?: string | null;
+  valid_to?: string | null;
 };
 
 /* =========================================================
@@ -177,6 +197,36 @@ export type AttendanceRecord = {
    ========================================================= */
 
 export type TimetableInput = Omit<TimetableRecord, "id">;
+
+export type TimetableOpenInput = {
+  grade_id: number;
+  section_id: number;
+  valid_from: string;
+  valid_to: string;
+};
+
+export type TimetableAssignmentInput = {
+  subject_id: number | null;
+  staff_id: number | null;
+};
+
+export type SessionGenerateInput = {
+  grade_id: number;
+  section_id: number;
+  start_date?: string | null;
+  end_date?: string | null;
+  skip_dates?: string[];
+};
+
+export type SessionGenerateResult = {
+  success: boolean;
+  message: string;
+  created: number;
+  assigned_slots: number;
+  unassigned_slots: number;
+  start_date: string;
+  end_date: string;
+};
 
 export type ClassSessionInput = Omit<ClassSessionRecord, "id">;
 
@@ -220,6 +270,10 @@ export function getSchedulingSubjects() {
   return apiRequest<SubjectOption[]>("/api/subjects/");
 }
 
+export function getSchedulingGrades() {
+  return apiRequest<GradeOption[]>("/api/grades");
+}
+
 export function getSchedulingStudents() {
   return apiRequest<
     { students?: StudentRecord[] } | StudentRecord[]
@@ -233,6 +287,27 @@ export function getSchedulingStudents() {
 export function getTimetables() {
   return apiRequest<TimetableRecord[]>(
     "/api/scheduling/timetables"
+  );
+}
+
+/** Create (or re-open) the 6 x 6 grid for one class + section. */
+export function openTimetable(payload: TimetableOpenInput) {
+  return sendJson<TimetableRecord[]>(
+    "/api/scheduling/timetables/open",
+    "POST",
+    payload
+  );
+}
+
+/** Set (or clear, with nulls) the weekly subject + staff for one slot. */
+export function assignTimetableSlot(
+  id: number,
+  payload: TimetableAssignmentInput
+) {
+  return sendJson<TimetableRecord>(
+    `/api/scheduling/timetables/${id}/assignment`,
+    "PUT",
+    payload
   );
 }
 
@@ -272,6 +347,17 @@ export function removeTimetable(id: number) {
 export function getClassSessions() {
   return apiRequest<ClassSessionRecord[]>(
     "/api/scheduling/sessions"
+  );
+}
+
+/** Generate dated sessions from a class + section's weekly grid. */
+export function generateClassSessions(
+  payload: SessionGenerateInput
+) {
+  return sendJson<SessionGenerateResult>(
+    "/api/scheduling/sessions/generate",
+    "POST",
+    payload
   );
 }
 

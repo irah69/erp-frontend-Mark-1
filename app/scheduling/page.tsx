@@ -1,1031 +1,338 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
-  ClassSessionRecord,
+  GradeOption,
   SectionOption,
   StaffOption,
   SubjectOption,
-  TimetableInput,
   TimetableRecord,
-  ClassSessionInput,
-  createClassSession,
-  createTimetable,
-  getClassSessions,
+  assignTimetableSlot,
+  generateClassSessions,
+  getSchedulingGrades,
   getSchedulingSections,
   getSchedulingStaff,
   getSchedulingSubjects,
-  getTimetables,
-  removeClassSession,
-  removeTimetable,
-  updateClassSession,
-  updateTimetable,
+  openTimetable,
 } from "../../lib/api";
 
-type Tab = "timetable" | "sessions";
-
-type TimetableForm = {
-  section_id: string;
-  day_of_week: string;
-  start_time: string;
-  end_time: string;
-  room: string;
-  status: string;
-};
-
-type SessionForm = {
-  timetable_id: string;
-  subject_id: string;
-  staff_id: string;
-  session_date: string;
-  is_conducted: string;
-  remarks: string;
-};
-
-const emptyTimetableForm: TimetableForm = {
-  section_id: "",
-  day_of_week: "1",
-  start_time: "09:00",
-  end_time: "10:00",
-  room: "",
-  status: "active",
-};
-
-const dayNames = [
-  "Monday",
-  "Tuesday",
-  "Wednesday",
-  "Thursday",
-  "Friday",
-  "Saturday",
-  "Sunday",
-];
-
-const attendanceDate = () => new Date().toISOString().slice(0, 10);
-
-function displaySubject(subject: SubjectOption | undefined, id: number) {
-  return (
-    subject?.name ??
-    subject?.subject ??
-    subject?.code ??
-    `Subject ${id}`
-  );
-}
-
-function displayTime(value: string) {
-  return value.slice(0, 5);
-}
+const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+const PERIODS = [1, 2, 3, 4, 5, 6];
 
 function getErrorMessage(error: unknown, fallback: string) {
   return error instanceof Error ? error.message : fallback;
 }
 
-export default function SchedulingPage() {
-  const [tab, setTab] = useState<Tab>("timetable");
+function subjectLabel(subject: SubjectOption | undefined) {
+  return subject?.name ?? subject?.subject ?? subject?.code ?? "";
+}
 
+export default function TimetablePage() {
+  const [grades, setGrades] = useState<GradeOption[]>([]);
   const [sections, setSections] = useState<SectionOption[]>([]);
-  const [staff, setStaff] = useState<StaffOption[]>([]);
   const [subjects, setSubjects] = useState<SubjectOption[]>([]);
+  const [staff, setStaff] = useState<StaffOption[]>([]);
 
-  const [timetables, setTimetables] = useState<TimetableRecord[]>([]);
-  const [sessions, setSessions] = useState<ClassSessionRecord[]>([]);
+  // One dropdown: each /api/grades row already pairs a class with a section.
+  const [gradeRowId, setGradeRowId] = useState("");
+  const [validFrom, setValidFrom] = useState("2026-06-01");
+  const [validTo, setValidTo] = useState("2027-03-31");
+
+  const [slots, setSlots] = useState<TimetableRecord[]>([]);
+  const [selectedSlotId, setSelectedSlotId] = useState<number | null>(null);
+  const [subjectId, setSubjectId] = useState("");
+  const [staffId, setStaffId] = useState("");
+  const [skipDates, setSkipDates] = useState("");
 
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-
-  const [timetableFormOpen, setTimetableFormOpen] = useState(false);
-  const [sessionFormOpen, setSessionFormOpen] = useState(false);
-
-  const [editingTimetableId, setEditingTimetableId] = useState<number | null>(
-    null
-  );
-  const [editingSessionId, setEditingSessionId] = useState<number | null>(
-    null
-  );
-
-  const [timetableForm, setTimetableForm] =
-    useState<TimetableForm>(emptyTimetableForm);
-
-  const [sessionForm, setSessionForm] = useState<SessionForm>({
-    timetable_id: "",
-    subject_id: "",
-    staff_id: "",
-    session_date: attendanceDate(),
-    is_conducted: "false",
-    remarks: "",
-  });
-
-  const sectionNames = useMemo(
-    () => new Map(sections.map((section) => [section.id, section.section])),
-    [sections]
-  );
-
-  const staffNames = useMemo(
-    () => new Map(staff.map((member) => [member.id, member.name])),
-    [staff]
-  );
-
-  const subjectNames = useMemo(
-    () =>
-      new Map(
-        subjects.map((subject) => [
-          subject.id,
-          displaySubject(subject, subject.id),
-        ])
-      ),
-    [subjects]
-  );
-
-  async function loadSchedulingData() {
-    setLoading(true);
-    setError("");
-
-    try {
-      const [
-        sectionData,
-        staffData,
-        subjectData,
-        timetableData,
-        sessionData,
-      ] = await Promise.all([
-        getSchedulingSections(),
-        getSchedulingStaff(),
-        getSchedulingSubjects(),
-        getTimetables(),
-        getClassSessions(),
-      ]);
-
-      setSections(sectionData);
-      setStaff(staffData);
-      setSubjects(subjectData);
-      setTimetables(timetableData);
-      setSessions(sessionData);
-    } catch (loadError) {
-      setError(
-        getErrorMessage(loadError, "Unable to load scheduling data.")
-      );
-    } finally {
-      setLoading(false);
-    }
-  }
+  const [notice, setNotice] = useState("");
 
   useEffect(() => {
-    const timer = window.setTimeout(
-      () => void loadSchedulingData(),
-      0
-    );
-
-    return () => window.clearTimeout(timer);
+    async function loadOptions() {
+      try {
+        const [gradeData, sectionData, subjectData, staffData] = await Promise.all([
+          getSchedulingGrades(),
+          getSchedulingSections(),
+          getSchedulingSubjects(),
+          getSchedulingStaff(),
+        ]);
+        setGrades(gradeData);
+        setSections(sectionData);
+        setSubjects(subjectData);
+        setStaff(staffData);
+      } catch (loadError) {
+        setError(getErrorMessage(loadError, "Unable to load timetable options."));
+      } finally {
+        setLoading(false);
+      }
+    }
+    void loadOptions();
   }, []);
 
-  // =========================================================
-  // TIMETABLE
-  // =========================================================
+  const selectedGrade = grades.find((grade) => String(grade.id) === gradeRowId) ?? null;
+  const gradeId = selectedGrade?.id ?? null;
+  const sectionId = selectedGrade?.section_id ?? null;
 
-  function openNewTimetable() {
-    setEditingTimetableId(null);
-    setTimetableForm(emptyTimetableForm);
-    setTimetableFormOpen(true);
+  function gradeLabel(grade: GradeOption) {
+    const section = sections.find((item) => item.id === grade.section_id)?.section;
+    return section
+      ? `Class ${grade.grade} · Section ${section} · ${grade.academic_year}`
+      : `Class ${grade.grade} · ${grade.academic_year} (no section assigned)`;
+  }
+
+  const slotMap = useMemo(
+    () => new Map(slots.map((slot) => [`${slot.day_of_week}-${slot.period_number}`, slot])),
+    [slots]
+  );
+  const selectedSlot = slots.find((slot) => slot.id === selectedSlotId) ?? null;
+  const assignedCount = slots.filter((slot) => slot.default_subject_id && slot.default_staff_id).length;
+
+  function selectSlot(slot: TimetableRecord) {
+    setSelectedSlotId(slot.id);
+    setSubjectId(slot.default_subject_id ? String(slot.default_subject_id) : "");
+    setStaffId(slot.default_staff_id ? String(slot.default_staff_id) : "");
+    setNotice("");
     setError("");
   }
 
-  function openEditTimetable(item: TimetableRecord) {
-    setEditingTimetableId(item.id);
-
-    setTimetableForm({
-      section_id: String(item.section_id),
-      day_of_week: String(item.day_of_week),
-      start_time: displayTime(item.start_time),
-      end_time: displayTime(item.end_time),
-      room: item.room ?? "",
-      status: item.status,
-    });
-
-    setTimetableFormOpen(true);
-    setError("");
-  }
-
-  function closeTimetableForm() {
-    setTimetableFormOpen(false);
-    setEditingTimetableId(null);
-    setTimetableForm(emptyTimetableForm);
-  }
-
-  async function submitTimetable(
-    event: FormEvent<HTMLFormElement>
-  ) {
-    event.preventDefault();
-
-    if (!timetableForm.section_id) {
-      setError("Select a section.");
+  async function handleOpen() {
+    if (!gradeId || !sectionId) {
+      setError("Select a class and section that has a section assigned.");
       return;
     }
-
-    if (timetableForm.start_time >= timetableForm.end_time) {
-      setError("Start time must be earlier than end time.");
+    if (!validFrom || !validTo || validTo < validFrom) {
+      setError("Enter a valid academic year start and end date.");
       return;
     }
-
-    const payload: TimetableInput = {
-      section_id: Number(timetableForm.section_id),
-      day_of_week: Number(timetableForm.day_of_week),
-      start_time: `${timetableForm.start_time}:00`,
-      end_time: `${timetableForm.end_time}:00`,
-      room: timetableForm.room.trim() || null,
-      status: timetableForm.status,
-    };
-
-    setSaving(true);
+    setBusy(true);
     setError("");
-
+    setNotice("");
     try {
-      if (editingTimetableId === null) {
-        await createTimetable(payload);
-      } else {
-        await updateTimetable(editingTimetableId, payload);
-      }
-
-      closeTimetableForm();
-      await loadSchedulingData();
-    } catch (saveError) {
-      setError(
-        getErrorMessage(saveError, "Unable to save timetable.")
-      );
+      const data = await openTimetable({
+        grade_id: gradeId,
+        section_id: sectionId,
+        valid_from: validFrom,
+        valid_to: validTo,
+      });
+      setSlots(data);
+      setSelectedSlotId(null);
+    } catch (openError) {
+      setError(getErrorMessage(openError, "Unable to open the timetable."));
     } finally {
-      setSaving(false);
+      setBusy(false);
     }
   }
 
-  async function deleteTimetable(id: number) {
-    if (!window.confirm("Delete this timetable?")) return;
-
+  async function handleSaveSlot() {
+    if (!selectedSlot) return;
+    setBusy(true);
     setError("");
-
+    setNotice("");
     try {
-      await removeTimetable(id);
-      await loadSchedulingData();
-    } catch (deleteError) {
-      setError(
-        getErrorMessage(deleteError, "Unable to delete timetable.")
-      );
-    }
-  }
-
-  // =========================================================
-  // CLASS SESSION
-  // =========================================================
-
-  function openNewSession() {
-    setEditingSessionId(null);
-
-    setSessionForm({
-      timetable_id: "",
-      subject_id: "",
-      staff_id: "",
-      session_date: attendanceDate(),
-      is_conducted: "false",
-      remarks: "",
-    });
-
-    setSessionFormOpen(true);
-    setError("");
-  }
-
-  function openEditSession(session: ClassSessionRecord) {
-    setEditingSessionId(session.id);
-
-    setSessionForm({
-      timetable_id: String(session.timetable_id),
-      subject_id: String(session.subject_id),
-      staff_id: String(session.staff_id),
-      session_date: session.session_date.slice(0, 10),
-      is_conducted: String(session.is_conducted),
-      remarks: session.remarks ?? "",
-    });
-
-    setSessionFormOpen(true);
-    setError("");
-  }
-
-  function closeSessionForm() {
-    setSessionFormOpen(false);
-    setEditingSessionId(null);
-
-    setSessionForm({
-      timetable_id: "",
-      subject_id: "",
-      staff_id: "",
-      session_date: attendanceDate(),
-      is_conducted: "false",
-      remarks: "",
-    });
-  }
-
-  async function submitSession(
-    event: FormEvent<HTMLFormElement>
-  ) {
-    event.preventDefault();
-
-    if (
-      !sessionForm.timetable_id ||
-      !sessionForm.subject_id ||
-      !sessionForm.staff_id ||
-      !sessionForm.session_date
-    ) {
-      setError(
-        "Select a timetable, subject, staff member, and session date."
-      );
-      return;
-    }
-
-    const payload: ClassSessionInput = {
-      timetable_id: Number(sessionForm.timetable_id),
-      subject_id: Number(sessionForm.subject_id),
-      staff_id: Number(sessionForm.staff_id),
-      session_date: sessionForm.session_date,
-      is_conducted: sessionForm.is_conducted === "true",
-      remarks: sessionForm.remarks.trim() || null,
-    };
-
-    setSaving(true);
-    setError("");
-
-    try {
-      if (editingSessionId === null) {
-        await createClassSession(payload);
-      } else {
-        await updateClassSession(editingSessionId, payload);
-      }
-
-      closeSessionForm();
-      await loadSchedulingData();
+      const updated = await assignTimetableSlot(selectedSlot.id, {
+        subject_id: subjectId ? Number(subjectId) : null,
+        staff_id: staffId ? Number(staffId) : null,
+      });
+      setSlots((current) => current.map((slot) => (slot.id === updated.id ? updated : slot)));
+      setNotice("Slot saved.");
     } catch (saveError) {
-      setError(
-        getErrorMessage(saveError, "Unable to save class session.")
-      );
+      setError(getErrorMessage(saveError, "Unable to save this slot."));
     } finally {
-      setSaving(false);
+      setBusy(false);
     }
   }
 
-  async function deleteSession(id: number) {
-    if (!window.confirm("Delete this class session?")) return;
-
+  async function handleGenerate() {
+    if (!gradeId || !sectionId) return;
+    setBusy(true);
     setError("");
-
+    setNotice("");
     try {
-      await removeClassSession(id);
-      await loadSchedulingData();
-    } catch (deleteError) {
-      setError(
-        getErrorMessage(deleteError, "Unable to delete class session.")
+      const dates = skipDates
+        .split(",")
+        .map((value) => value.trim())
+        .filter(Boolean);
+      const result = await generateClassSessions({
+        grade_id: gradeId,
+        section_id: sectionId,
+        start_date: validFrom,
+        end_date: validTo,
+        skip_dates: dates,
+      });
+      setNotice(
+        `${result.created} sessions created from ${result.start_date} to ${result.end_date}. ` +
+          `${result.unassigned_slots} slot(s) had no subject/staff and were skipped.`
       );
+    } catch (generateError) {
+      setError(getErrorMessage(generateError, "Unable to generate class sessions."));
+    } finally {
+      setBusy(false);
     }
-  }
-
-  // =========================================================
-  // DISPLAY HELPERS
-  // =========================================================
-
-  function timetableLabel(item: TimetableRecord) {
-    const section =
-      sectionNames.get(item.section_id) ??
-      `Section ${item.section_id}`;
-
-    return `${section} / ${
-      dayNames[item.day_of_week - 1] ?? "Unknown day"
-    } ${displayTime(item.start_time)}–${displayTime(item.end_time)}${
-      item.room ? ` / ${item.room}` : ""
-    }`;
   }
 
   return (
     <section className="page-section admin-page">
       <div className="admin-heading">
         <div>
-          <p className="eyebrow">Academics</p>
-          <h1>Scheduling</h1>
-          <p>
-            Manage weekly timetables and the class sessions scheduled
-            from them.
-          </p>
+          <p className="eyebrow">Scheduling</p>
+          <h1>Timetable</h1>
+          <p>Open a class timetable, fill the weekly grid, then generate dated class sessions.</p>
         </div>
       </div>
 
-      {error && (
-        <div className="alert error" role="alert">
-          {error}
-        </div>
-      )}
+      {error && <div className="alert error" role="alert">{error}</div>}
+      {notice && <div className="alert" role="status">{notice}</div>}
 
       <div className="data-panel" style={{ marginTop: 0 }}>
-        <div
-          className="toolbar"
-          role="tablist"
-          aria-label="Scheduling views"
-        >
-          <div style={{ display: "flex", gap: 8 }}>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={tab === "timetable"}
-              className="small-button"
-              onClick={() => setTab("timetable")}
+        <div className="form-grid">
+          <label>Class &amp; section
+            <select
+              value={gradeRowId}
+              onChange={(event) => {
+                setGradeRowId(event.target.value);
+                setSlots([]);
+                setSelectedSlotId(null);
+              }}
             >
-              Timetables
-            </button>
-
-            <button
-              type="button"
-              role="tab"
-              aria-selected={tab === "sessions"}
-              className="small-button"
-              onClick={() => setTab("sessions")}
-            >
-              Class sessions
-            </button>
-          </div>
-
-          <button
-            className="action-button primary"
-            type="button"
-            onClick={
-              tab === "timetable"
-                ? openNewTimetable
-                : openNewSession
-            }
-          >
-            {tab === "timetable"
-              ? "+ Add timetable"
-              : "+ Create session"}
+              <option value="">Select class and section</option>
+              {grades.map((grade) => (
+                <option key={grade.id} value={grade.id} disabled={!grade.section_id}>
+                  {gradeLabel(grade)}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>Academic year start
+            <input type="date" value={validFrom} onChange={(event) => setValidFrom(event.target.value)} />
+          </label>
+          <label>Academic year end
+            <input type="date" value={validTo} onChange={(event) => setValidTo(event.target.value)} />
+          </label>
+        </div>
+        <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 12 }}>
+          <button className="action-button primary" type="button" disabled={busy || loading} onClick={() => void handleOpen()}>
+            {busy ? "Working..." : "Create / Open timetable"}
           </button>
         </div>
-
-        {/* =====================================================
-            TIMETABLE TAB
-        ===================================================== */}
-
-        {tab === "timetable" ? (
-          <>
-            {timetableFormOpen && (
-              <form
-                className="editor-panel"
-                onSubmit={submitTimetable}
-              >
-                <div className="panel-title">
-                  <div>
-                    <p className="eyebrow">
-                      {editingTimetableId === null
-                        ? "New record"
-                        : "Update record"}
-                    </p>
-
-                    <h2>
-                      {editingTimetableId === null
-                        ? "Add timetable"
-                        : "Edit timetable"}
-                    </h2>
-                  </div>
-
-                  <button
-                    type="button"
-                    className="close-button"
-                    aria-label="Close form"
-                    onClick={closeTimetableForm}
-                  >
-                    ×
-                  </button>
-                </div>
-
-                <div className="form-grid">
-                  {/* SECTION */}
-                  <label>
-                    Section
-
-                    <select
-                      required
-                      value={timetableForm.section_id}
-                      onChange={(event) =>
-                        setTimetableForm({
-                          ...timetableForm,
-                          section_id: event.target.value,
-                        })
-                      }
-                    >
-                      <option value="">Select section</option>
-
-                      {sections.map((section) => (
-                        <option
-                          key={section.id}
-                          value={section.id}
-                        >
-                          {section.section}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-
-                  {/* DAY */}
-                  <label>
-                    Day
-
-                    <select
-                      value={timetableForm.day_of_week}
-                      onChange={(event) =>
-                        setTimetableForm({
-                          ...timetableForm,
-                          day_of_week: event.target.value,
-                        })
-                      }
-                    >
-                      {dayNames.map((day, index) => (
-                        <option
-                          key={day}
-                          value={index + 1}
-                        >
-                          {day}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-
-                  {/* START TIME */}
-                  <label>
-                    Start time
-
-                    <input
-                      required
-                      type="time"
-                      value={timetableForm.start_time}
-                      onChange={(event) =>
-                        setTimetableForm({
-                          ...timetableForm,
-                          start_time: event.target.value,
-                        })
-                      }
-                    />
-                  </label>
-
-                  {/* END TIME */}
-                  <label>
-                    End time
-
-                    <input
-                      required
-                      type="time"
-                      value={timetableForm.end_time}
-                      onChange={(event) =>
-                        setTimetableForm({
-                          ...timetableForm,
-                          end_time: event.target.value,
-                        })
-                      }
-                    />
-                  </label>
-
-                  {/* ROOM */}
-                  <label>
-                    Room
-
-                    <input
-                      value={timetableForm.room}
-                      onChange={(event) =>
-                        setTimetableForm({
-                          ...timetableForm,
-                          room: event.target.value,
-                        })
-                      }
-                      placeholder="Room 12"
-                    />
-                  </label>
-
-                  {/* STATUS */}
-                  <label>
-                    Status
-
-                    <select
-                      value={timetableForm.status}
-                      onChange={(event) =>
-                        setTimetableForm({
-                          ...timetableForm,
-                          status: event.target.value,
-                        })
-                      }
-                    >
-                      <option value="active">Active</option>
-                      <option value="inactive">Inactive</option>
-                    </select>
-                  </label>
-                </div>
-
-                <button
-                  className="action-button primary"
-                  type="submit"
-                  disabled={saving}
-                >
-                  {saving
-                    ? "Saving..."
-                    : editingTimetableId === null
-                    ? "Create timetable"
-                    : "Save changes"}
-                </button>
-              </form>
-            )}
-
-            {loading ? (
-              <p className="state-text">
-                Loading timetables...
-              </p>
-            ) : (
-              <div className="table-scroll">
-                <table className="data-table">
-                  <thead>
-                    <tr>
-                      <th>Day</th>
-                      <th>Time</th>
-                      <th>Section</th>
-                      <th>Room</th>
-                      <th>Status</th>
-                      <th>Actions</th>
-                    </tr>
-                  </thead>
-
-                  <tbody>
-                    {timetables.length === 0 ? (
-                      <tr>
-                        <td
-                          colSpan={6}
-                          className="state-text"
-                        >
-                          No timetables found.
-                        </td>
-                      </tr>
-                    ) : (
-                      timetables.map((item) => (
-                        <tr key={item.id}>
-                          <td>
-                            {dayNames[item.day_of_week - 1] ??
-                              `Day ${item.day_of_week}`}
-                          </td>
-
-                          <td>
-                            {displayTime(item.start_time)}–
-                            {displayTime(item.end_time)}
-                          </td>
-
-                          <td>
-                            {sectionNames.get(item.section_id) ??
-                              `Section ${item.section_id}`}
-                          </td>
-
-                          <td>{item.room || "—"}</td>
-
-                          <td>
-                            <span
-                              className={`status-pill ${
-                                item.status === "active"
-                                  ? ""
-                                  : "inactive"
-                              }`}
-                            >
-                              {item.status}
-                            </span>
-                          </td>
-
-                          <td>
-                            <button
-                              type="button"
-                              className="small-button"
-                              onClick={() =>
-                                openEditTimetable(item)
-                              }
-                            >
-                              Edit
-                            </button>
-
-                            <button
-                              type="button"
-                              className="small-button danger"
-                              onClick={() =>
-                                void deleteTimetable(item.id)
-                              }
-                            >
-                              Delete
-                            </button>
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </>
-        ) : (
-          /* =====================================================
-             CLASS SESSION TAB
-          ===================================================== */
-
-          <>
-            {sessionFormOpen && (
-              <form
-                className="editor-panel"
-                onSubmit={submitSession}
-              >
-                <div className="panel-title">
-                  <div>
-                    <p className="eyebrow">
-                      {editingSessionId === null
-                        ? "New record"
-                        : "Update record"}
-                    </p>
-
-                    <h2>
-                      {editingSessionId === null
-                        ? "Create class session"
-                        : "Edit class session"}
-                    </h2>
-                  </div>
-
-                  <button
-                    type="button"
-                    className="close-button"
-                    aria-label="Close form"
-                    onClick={closeSessionForm}
-                  >
-                    ×
-                  </button>
-                </div>
-
-                <div className="form-grid">
-                  {/* TIMETABLE */}
-                  <label>
-                    Timetable
-
-                    <select
-                      required
-                      value={sessionForm.timetable_id}
-                      onChange={(event) =>
-                        setSessionForm({
-                          ...sessionForm,
-                          timetable_id: event.target.value,
-                        })
-                      }
-                    >
-                      <option value="">
-                        Select timetable
-                      </option>
-
-                      {timetables.map((item) => (
-                        <option
-                          key={item.id}
-                          value={item.id}
-                        >
-                          {timetableLabel(item)}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-
-                  {/* SUBJECT */}
-                  <label>
-                    Subject
-
-                    <select
-                      required
-                      value={sessionForm.subject_id}
-                      onChange={(event) =>
-                        setSessionForm({
-                          ...sessionForm,
-                          subject_id: event.target.value,
-                        })
-                      }
-                    >
-                      <option value="">
-                        Select subject
-                      </option>
-
-                      {subjects.map((subject) => (
-                        <option
-                          key={subject.id}
-                          value={subject.id}
-                        >
-                          {displaySubject(
-                            subject,
-                            subject.id
-                          )}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-
-                  {/* STAFF */}
-                  <label>
-                    Staff
-
-                    <select
-                      required
-                      value={sessionForm.staff_id}
-                      onChange={(event) =>
-                        setSessionForm({
-                          ...sessionForm,
-                          staff_id: event.target.value,
-                        })
-                      }
-                    >
-                      <option value="">
-                        Select staff
-                      </option>
-
-                      {staff.map((member) => (
-                        <option
-                          key={member.id}
-                          value={member.id}
-                        >
-                          {member.name}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-
-                  {/* DATE */}
-                  <label>
-                    Session date
-
-                    <input
-                      required
-                      type="date"
-                      value={sessionForm.session_date}
-                      onChange={(event) =>
-                        setSessionForm({
-                          ...sessionForm,
-                          session_date: event.target.value,
-                        })
-                      }
-                    />
-                  </label>
-
-                  {/* CONDUCTED */}
-                  <label>
-                    Conducted
-
-                    <select
-                      value={sessionForm.is_conducted}
-                      onChange={(event) =>
-                        setSessionForm({
-                          ...sessionForm,
-                          is_conducted: event.target.value,
-                        })
-                      }
-                    >
-                      <option value="false">No</option>
-                      <option value="true">Yes</option>
-                    </select>
-                  </label>
-
-                  {/* REMARKS */}
-                  <label>
-                    Remarks
-
-                    <input
-                      value={sessionForm.remarks}
-                      onChange={(event) =>
-                        setSessionForm({
-                          ...sessionForm,
-                          remarks: event.target.value,
-                        })
-                      }
-                      placeholder="Optional"
-                    />
-                  </label>
-                </div>
-
-                <button
-                  className="action-button primary"
-                  type="submit"
-                  disabled={saving}
-                >
-                  {saving
-                    ? "Saving..."
-                    : editingSessionId === null
-                    ? "Create session"
-                    : "Save changes"}
-                </button>
-              </form>
-            )}
-
-            {loading ? (
-              <p className="state-text">
-                Loading class sessions...
-              </p>
-            ) : (
-              <div className="table-scroll">
-                <table className="data-table">
-                  <thead>
-                    <tr>
-                      <th>Date</th>
-                      <th>Class timetable</th>
-                      <th>Subject</th>
-                      <th>Staff</th>
-                      <th>Conducted</th>
-                      <th>Remarks</th>
-                      <th>Actions</th>
-                    </tr>
-                  </thead>
-
-                  <tbody>
-                    {sessions.length === 0 ? (
-                      <tr>
-                        <td
-                          colSpan={7}
-                          className="state-text"
-                        >
-                          No class sessions found.
-                        </td>
-                      </tr>
-                    ) : (
-                      sessions.map((session) => {
-                        const timetable = timetables.find(
-                          (item) =>
-                            item.id === session.timetable_id
-                        );
-
-                        return (
-                          <tr key={session.id}>
-                            <td>
-                              {session.session_date.slice(
-                                0,
-                                10
-                              )}
-                            </td>
-
-                            <td>
-                              {timetable
-                                ? timetableLabel(timetable)
-                                : `Timetable ${session.timetable_id}`}
-                            </td>
-
-                            <td>
-                              {subjectNames.get(
-                                session.subject_id
-                              ) ??
-                                `Subject ${session.subject_id}`}
-                            </td>
-
-                            <td>
-                              {staffNames.get(
-                                session.staff_id
-                              ) ??
-                                `Staff ${session.staff_id}`}
-                            </td>
-
-                            <td>
-                              <span className="status-pill">
-                                {session.is_conducted
-                                  ? "Conducted"
-                                  : "Pending"}
-                              </span>
-                            </td>
-
-                            <td>
-                              {session.remarks || "—"}
-                            </td>
-
-                            <td>
-                              <button
-                                type="button"
-                                className="small-button"
-                                onClick={() =>
-                                  openEditSession(session)
-                                }
-                              >
-                                Edit
-                              </button>
-
-                              <button
-                                type="button"
-                                className="small-button danger"
-                                onClick={() =>
-                                  void deleteSession(
-                                    session.id
-                                  )
-                                }
-                              >
-                                Delete
-                              </button>
-                            </td>
-                          </tr>
-                        );
-                      })
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </>
-        )}
       </div>
+
+      {slots.length > 0 && (
+        <>
+          <div className="data-panel">
+            <div className="toolbar" style={{ flexWrap: "wrap" }}>
+              <h2>Weekly grid <span>{assignedCount}/{slots.length} assigned</span></h2>
+            </div>
+            <div className="table-scroll">
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Day</th>
+                    {PERIODS.map((period) => <th key={period}>Period {period}</th>)}
+                  </tr>
+                </thead>
+                <tbody>
+                  {DAYS.map((day, dayIndex) => (
+                    <tr key={day}>
+                      <td>{day}</td>
+                      {PERIODS.map((period) => {
+                        const slot = slotMap.get(`${dayIndex + 1}-${period}`);
+                        if (!slot) return <td key={period}>—</td>;
+                        const subject = subjectLabel(subjects.find((item) => item.id === slot.default_subject_id));
+                        const teacher = staff.find((item) => item.id === slot.default_staff_id)?.name;
+                        const isSelected = slot.id === selectedSlotId;
+                        return (
+                          <td key={period}>
+                            <button
+                              type="button"
+                              onClick={() => selectSlot(slot)}
+                              aria-pressed={isSelected}
+                              style={{
+                                width: "100%",
+                                minWidth: 110,
+                                textAlign: "left",
+                                padding: 8,
+                                borderRadius: 6,
+                                cursor: "pointer",
+                                background: "transparent",
+                                color: "inherit",
+                                border: isSelected ? "2px solid currentColor" : "1px dashed currentColor",
+                                opacity: subject || teacher ? 1 : 0.6,
+                              }}
+                            >
+                              <strong>{subject || "Unassigned"}</strong>
+                              <br />
+                              <small>{teacher ?? "No staff"}</small>
+                              <br />
+                              <small>{slot.start_time.slice(0, 5)}–{slot.end_time.slice(0, 5)}</small>
+                            </button>
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div className="data-panel">
+            {selectedSlot ? (
+              <>
+                <div className="toolbar">
+                  <h2>{DAYS[selectedSlot.day_of_week - 1]} · Period {selectedSlot.period_number}</h2>
+                </div>
+                <div className="form-grid">
+                  <label>Subject
+                    <select value={subjectId} onChange={(event) => setSubjectId(event.target.value)}>
+                      <option value="">No subject</option>
+                      {subjects.map((subject) => (
+                        <option key={subject.id} value={subject.id}>{subjectLabel(subject) || `Subject ${subject.id}`}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>Staff
+                    <select value={staffId} onChange={(event) => setStaffId(event.target.value)}>
+                      <option value="">No staff</option>
+                      {staff.map((member) => (
+                        <option key={member.id} value={member.id}>{member.name}</option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+                <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 12 }}>
+                  <button className="action-button primary" type="button" disabled={busy} onClick={() => void handleSaveSlot()}>
+                    Save slot
+                  </button>
+                </div>
+              </>
+            ) : (
+              <p className="state-text">Select a cell in the grid to assign a subject and staff member.</p>
+            )}
+          </div>
+
+          <div className="data-panel">
+            <div className="toolbar">
+              <h2>Generate class sessions</h2>
+            </div>
+            <div className="form-grid">
+              <label>Holidays to skip (YYYY-MM-DD, comma separated)
+                <input value={skipDates} onChange={(event) => setSkipDates(event.target.value)} placeholder="2026-10-02, 2026-12-25" />
+              </label>
+            </div>
+            <p className="state-text">
+              Creates one dated session for every assigned slot between {validFrom} and {validTo}.
+              Dates that already have a session are left unchanged.
+            </p>
+            <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 12 }}>
+              <button className="action-button primary" type="button" disabled={busy || assignedCount === 0} onClick={() => void handleGenerate()}>
+                Generate sessions
+              </button>
+            </div>
+          </div>
+        </>
+      )}
     </section>
   );
 }

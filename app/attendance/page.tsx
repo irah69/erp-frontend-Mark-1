@@ -5,6 +5,7 @@ import {
   AttendanceRecord,
   AttendanceStatus,
   ClassSessionRecord,
+  GradeOption,
   SectionOption,
   StaffOption,
   StudentRecord,
@@ -12,6 +13,7 @@ import {
   TimetableRecord,
   getAttendanceRecords,
   getClassSessions,
+  getSchedulingGrades,
   getSchedulingSections,
   getSchedulingStaff,
   getSchedulingStudents,
@@ -31,7 +33,15 @@ function formatSubject(subject: SubjectOption | undefined, id: number) {
   return subject?.name ?? subject?.subject ?? subject?.code ?? `Subject ${id}`;
 }
 
+// "10", "10th", "10th Class" all compare as "10".
+function normalizeGrade(value: string | null | undefined) {
+  const text = (value ?? "").trim().toLowerCase();
+  if (!text) return "";
+  return text.match(/\d+/)?.[0] ?? text;
+}
+
 export default function AttendancePage() {
+  const [grades, setGrades] = useState<GradeOption[]>([]);
   const [sections, setSections] = useState<SectionOption[]>([]);
   const [staff, setStaff] = useState<StaffOption[]>([]);
   const [subjects, setSubjects] = useState<SubjectOption[]>([]);
@@ -46,10 +56,13 @@ export default function AttendancePage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
-  const sessionOptions = useMemo(
-    () => sessions.filter((session) => session.session_date.slice(0, 10) === selectedDate),
-    [selectedDate, sessions]
-  );
+  const sessionOptions = useMemo(() => {
+    const startOf = (session: ClassSessionRecord) =>
+      timetables.find((item) => item.id === session.timetable_id)?.start_time ?? "";
+    return sessions
+      .filter((session) => session.session_date.slice(0, 10) === selectedDate)
+      .sort((a, b) => startOf(a).localeCompare(startOf(b)));
+  }, [selectedDate, sessions, timetables]);
   const selectedSession = sessionOptions.find((session) => String(session.id) === selectedSessionId) ?? null;
   const selectedTimetable = selectedSession
     ? timetables.find((timetable) => timetable.id === selectedSession.timetable_id) ?? null
@@ -58,15 +71,25 @@ export default function AttendancePage() {
     ? sections.find((section) => section.id === selectedTimetable.section_id) ?? null
     : null;
 
+  const selectedGrade = selectedTimetable?.grade_id
+    ? grades.find((grade) => grade.id === selectedTimetable.grade_id) ?? null
+    : null;
+
   const classStudents = useMemo(() => {
     if (!selectedTimetable || !selectedSection) return [];
     return students.filter((student) => {
-      if (student.section_id !== undefined && student.section_id !== null) {
-        return student.section_id === selectedSection.id;
-      }
-      return (student.section ?? "").trim().toLowerCase() === selectedSection.section.trim().toLowerCase();
+      const inSection =
+        student.section_id !== undefined && student.section_id !== null
+          ? student.section_id === selectedSection.id
+          : (student.section ?? "").trim().toLowerCase() === selectedSection.section.trim().toLowerCase();
+      if (!inSection) return false;
+
+      // Compare the class only when both sides have one.
+      const sessionGrade = normalizeGrade(selectedGrade?.grade);
+      const studentGrade = normalizeGrade(student.grade);
+      return !sessionGrade || !studentGrade || sessionGrade === studentGrade;
     });
-  }, [selectedSection, selectedTimetable, students]);
+  }, [selectedGrade, selectedSection, selectedTimetable, students]);
 
   const currentRecords = useMemo(() => {
     if (!selectedSession) return new Map<number, AttendanceRecord>();
@@ -90,7 +113,8 @@ export default function AttendancePage() {
     setLoading(true);
     setError("");
     try {
-      const [sectionData, staffData, subjectData, studentData, timetableData, sessionData, attendanceData] = await Promise.all([
+      const [gradeData, sectionData, staffData, subjectData, studentData, timetableData, sessionData, attendanceData] = await Promise.all([
+        getSchedulingGrades(),
         getSchedulingSections(),
         getSchedulingStaff(),
         getSchedulingSubjects(),
@@ -99,6 +123,7 @@ export default function AttendancePage() {
         getClassSessions(),
         getAttendanceRecords(),
       ]);
+      setGrades(gradeData);
       setSections(sectionData);
       setStaff(staffData);
       setSubjects(subjectData);
@@ -138,7 +163,7 @@ export default function AttendancePage() {
       });
 
       if (newRecords.length > 0) {
-        const created = await saveBulkAttendance({
+        await saveBulkAttendance({
           session_id: selectedSession.id,
           records: newRecords.map((student) => ({
             student_id: student.id,
@@ -146,7 +171,6 @@ export default function AttendancePage() {
             remarks: null,
           })),
         });
-        setRecords((current) => [...current, ...created.records]);
       }
 
       await Promise.all(changedRecords.map((student) => {
@@ -166,10 +190,15 @@ export default function AttendancePage() {
   function formatSession(session: ClassSessionRecord) {
     const timetable = timetables.find((item) => item.id === session.timetable_id);
     if (!timetable) return `Session ${session.id} · timetable ${session.timetable_id}`;
+    const grade = timetable.grade_id ? grades.find((item) => item.id === timetable.grade_id)?.grade : undefined;
     const section = sections.find((item) => item.id === timetable.section_id)?.section ?? `Section ${timetable.section_id}`;
-    const subject = formatSubject(subjects.find((item) => item.id === timetable.subject_id), timetable.subject_id);
-    const teacher = staff.find((item) => item.id === timetable.staff_id)?.name ?? `Staff ${timetable.staff_id}`;
-    return `${section} · ${subject} · ${teacher} · ${timetable.start_time.slice(0, 5)}`;
+    // Subject and staff belong to the session, not the timetable slot.
+    const subject = formatSubject(subjects.find((item) => item.id === session.subject_id), session.subject_id);
+    const teacher = staff.find((item) => item.id === session.staff_id)?.name ?? `Staff ${session.staff_id}`;
+    const slot = timetable.period_number
+      ? `P${timetable.period_number} ${timetable.start_time.slice(0, 5)}`
+      : timetable.start_time.slice(0, 5);
+    return `${grade ? `${grade} ${section}` : section} · ${slot} · ${subject} · ${teacher}`;
   }
 
   return (
