@@ -1,6 +1,5 @@
 export const API_BASE_URL =
-  process.env.Backend_API_URL?? "http://127.0.0.1:8000";
-
+  process.env.NEXT_PUBLIC_BACKEND_API_URL ?? "https://erp-backend-1-y2er.onrender.com"
 export type ApiRequestError = Error & { status?: number };
 
 export function getAccessToken() {

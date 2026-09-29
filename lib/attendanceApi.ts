@@ -2,8 +2,10 @@
 // If lib/api already has a shared request helper / base URL, use it here instead of getJson().
 import type { AttendanceStatus } from "./api";
 
-const API_BASE = (process.env.Backend_API_URL ?? "http://127.0.0.1:8000").replace(/\/$/, "");
-
+const API_BASE = (
+  process.env.NEXT_PUBLIC_BACKEND_API_URL ??
+  "https://erp-backend-1-y2er.onrender.com"
+).replace(/\/$/, "");
 // One period of a class on a date. ready = false -> the slot has no subject/staff yet, so no session exists.
 export type ClassDaySession = {
   timetable_id: number;
