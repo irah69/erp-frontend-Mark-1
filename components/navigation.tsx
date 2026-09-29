@@ -7,12 +7,14 @@ import { useEffect, useState } from "react";
 import { checkSession, logout, type CurrentUser } from "../lib/auth";
 
 const navigationItems = [
-  { href: "/dashboard", label: "Dashboard" },
-  { href: "/students", label: "Students" },
-  { href: "/scheduling", label: "Scheduling" },
-  { href: "/attendance", label: "Attendance" },
-  { href: "/users", label: "Users" },
+  { href: "/dashboard", label: "Dashboard", adminOnly: false },
+  { href: "/students", label: "Students", adminOnly: true },
+  { href: "/scheduling", label: "Scheduling", adminOnly: true },
+  { href: "/attendance", label: "Attendance", adminOnly: true },
+  { href: "/users", label: "Users", adminOnly: true },
 ];
+
+const HIDDEN_ON = ["/login"];
 
 export default function Navigation() {
   const router = useRouter();
@@ -20,39 +22,37 @@ export default function Navigation() {
 
   const [user, setUser] = useState<CurrentUser | null>(null);
   const [open, setOpen] = useState(false);
-  const [scrolled, setScrolled] = useState(false);
 
-  useEffect(() => {
-    const timer = window.setTimeout(() => {
-      void checkSession().then(setUser);
-    }, 0);
-    return () => window.clearTimeout(timer);
-  }, []);
+  const hidden = HIDDEN_ON.some((path) => pathname === path || pathname?.startsWith(`${path}/`));
 
-  // Float + blur the bar once the page has moved a little
+  // The navbar lives in the layout, so it is NOT remounted after login.
+  // Re-check the session on every route change so links appear right after signing in.
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 10);
-    onScroll();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
-  }, []);
-
-  // Lock body scroll while the mobile sheet is open
-  useEffect(() => {
-    document.body.style.overflow = open ? "hidden" : "";
+    if (hidden) {
+      setUser(null);
+      return;
+    }
+    let cancelled = false;
+    void checkSession()
+      .then((current) => {
+        if (!cancelled) setUser(current);
+      })
+      .catch(() => {
+        if (!cancelled) setUser(null);
+      });
     return () => {
-      document.body.style.overflow = "";
+      cancelled = true;
     };
-  }, [open]);
+  }, [pathname, hidden]);
 
-  // Close the sheet on route change and on Escape
+  // Close the mobile menu on navigation and on Escape.
   useEffect(() => {
     setOpen(false);
   }, [pathname]);
 
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -60,47 +60,40 @@ export default function Navigation() {
 
   async function handleLogout() {
     setOpen(false);
-    await logout();
-    router.replace("/login");
+    try {
+      await logout();
+    } finally {
+      setUser(null);
+      router.replace("/login");
+    }
   }
 
-  const links = navigationItems.filter(
-    (item) => item.href === "/dashboard" || user?.role_id === 1
-  );
+  if (hidden) return null;
 
-  const isActive = (href: string) =>
-    pathname === href || pathname?.startsWith(`${href}/`);
+  const links = navigationItems.filter((item) => !item.adminOnly || user?.role_id === 1);
+  const isActive = (href: string) => pathname === href || pathname?.startsWith(`${href}/`);
+
+  const linkClass = (href: string) =>
+    [
+      "rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+      "focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500",
+      isActive(href) ? "bg-blue-50 text-blue-700" : "text-slate-700 hover:bg-slate-100",
+    ].join(" ");
 
   return (
-    <header
-      className={[
-        "sticky top-0 z-50 mx-auto w-full max-w-6xl border-b border-transparent",
-        "md:rounded-2xl md:border md:transition-all md:duration-300 md:ease-out",
-        open
-          ? "bg-slate-950"
-          : scrolled
-            ? "border-slate-800 bg-slate-950/80 backdrop-blur-lg md:top-4 md:max-w-5xl md:shadow-2xl md:shadow-black/40"
-            : "md:border-transparent",
-      ].join(" ")}
-    >
+    <header className="sticky top-0 z-50 border-b border-slate-200 bg-white/90 backdrop-blur">
       <nav
         aria-label="Main navigation"
-        className={[
-          "flex h-16 w-full items-center justify-between px-4 md:h-14",
-          "md:transition-all md:duration-300 md:ease-out",
-          scrolled ? "md:px-3" : "md:px-5",
-        ].join(" ")}
+        className="mx-auto flex h-14 w-full max-w-6xl items-center justify-between px-4"
       >
         <Link
           href="/dashboard"
-          className="flex items-center gap-2.5 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
+          className="flex items-center gap-2 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
         >
-          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-white text-sm font-bold text-slate-950">
+          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-900 text-sm font-bold text-white">
             S
           </span>
-          <span className="text-sm font-semibold tracking-tight text-black">
-            Student ERP
-          </span>
+          <span className="text-sm font-semibold tracking-tight text-slate-900">Student ERP</span>
         </Link>
 
         {/* Desktop */}
@@ -110,22 +103,16 @@ export default function Navigation() {
               key={item.href}
               href={item.href}
               aria-current={isActive(item.href) ? "page" : undefined}
-              className={[
-                "rounded-xl border px-3 py-2 text-sm font-medium shadow-[0_1px_0_rgba(255,255,255,0.15)] backdrop-blur-xl transition-all duration-200",
-                "focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950",
-                isActive(item.href)
-                  ? "border-white/20 bg-white/12 text-black shadow-[0_12px_32px_rgba(255,255,255,0.12)]"
-                  : "border-white/10 bg-white/5 text-black hover:bg-white/10 hover:text-black",
-              ].join(" ")}
+              className={linkClass(item.href)}
             >
               {item.label}
             </Link>
           ))}
 
-          <span className="mx-2 h-5 w-px bg-slate-800" aria-hidden="true" />
+          <span className="mx-2 h-5 w-px bg-slate-200" aria-hidden="true" />
 
           {user?.email && (
-            <span className="mr-1 hidden max-w-[180px] truncate text-sm text-black lg:inline">
+            <span className="mr-2 hidden max-w-[180px] truncate text-sm text-slate-500 lg:inline">
               {user.email}
             </span>
           )}
@@ -133,7 +120,7 @@ export default function Navigation() {
           <button
             type="button"
             onClick={handleLogout}
-            className="rounded-xl border border-white/15 bg-white/8 px-3 py-2 text-sm font-medium text-black shadow-[0_8px_24px_rgba(148,163,184,0.18)] backdrop-blur-xl transition-all duration-200 hover:bg-white/12 focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
+            className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
           >
             Sign out
           </button>
@@ -142,21 +129,21 @@ export default function Navigation() {
         {/* Mobile toggle */}
         <button
           type="button"
-          onClick={() => setOpen(!open)}
+          onClick={() => setOpen((value) => !value)}
           aria-expanded={open}
           aria-controls="mobile-nav"
           aria-label={open ? "Close menu" : "Open menu"}
-          className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/15 bg-white/8 text-black shadow-[0_8px_24px_rgba(148,163,184,0.18)] backdrop-blur-xl transition-all duration-200 hover:bg-white/12 focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 md:hidden"
+          className="flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 text-slate-800 transition-colors hover:bg-slate-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 md:hidden"
         >
           <MenuToggleIcon open={open} />
         </button>
       </nav>
 
-      {/* Mobile sheet */}
+      {/* Mobile menu */}
       <div
         id="mobile-nav"
         hidden={!open}
-        className="fixed inset-x-0 bottom-0 top-16 z-50 flex flex-col justify-between gap-4 border-t border-slate-800 bg-slate-950 p-4 md:hidden"
+        className="border-t border-slate-200 bg-white px-4 pb-4 pt-2 md:hidden"
       >
         <div className="grid gap-1">
           {links.map((item) => (
@@ -164,26 +151,19 @@ export default function Navigation() {
               key={item.href}
               href={item.href}
               aria-current={isActive(item.href) ? "page" : undefined}
-              className={[
-                "rounded-xl border px-4 py-3 text-base font-medium shadow-[0_1px_0_rgba(255,255,255,0.15)] backdrop-blur-xl transition-all duration-200",
-                isActive(item.href)
-                  ? "border-white/20 bg-white/12 text-black shadow-[0_12px_32px_rgba(255,255,255,0.12)]"
-                  : "border-white/10 bg-white/5 text-black hover:bg-white/10",
-              ].join(" ")}
+              className={`${linkClass(item.href)} py-3 text-base`}
             >
               {item.label}
             </Link>
           ))}
         </div>
 
-        <div className="flex flex-col gap-3 pb-[env(safe-area-inset-bottom)]">
-          {user?.email && (
-            <p className="truncate px-1 text-sm text-black">{user.email}</p>
-          )}
+        <div className="mt-3 flex flex-col gap-2 border-t border-slate-200 pt-3">
+          {user?.email && <p className="truncate px-1 text-sm text-slate-500">{user.email}</p>}
           <button
             type="button"
             onClick={handleLogout}
-            className="w-full rounded-xl border border-white/15 bg-white/10 py-3 text-sm font-semibold text-black shadow-[0_10px_30px_rgba(148,163,184,0.22)] backdrop-blur-xl transition-all duration-200 hover:bg-white/15"
+            className="w-full rounded-lg border border-slate-200 py-3 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-100"
           >
             Sign out
           </button>
@@ -194,20 +174,12 @@ export default function Navigation() {
 }
 
 function MenuToggleIcon({ open }: { open: boolean }) {
-  const bar =
-    "absolute left-1/2 h-0.5 w-5 -translate-x-1/2 rounded-full bg-current transition-all duration-300 ease-out";
-
+  const bar = "absolute left-1/2 h-0.5 w-5 -translate-x-1/2 rounded-full bg-current transition-all duration-200";
   return (
     <span className="relative block h-5 w-5" aria-hidden="true">
-      <span
-        className={`${bar} ${open ? "top-1/2 -translate-y-1/2 rotate-45" : "top-[6px]"}`}
-      />
-      <span
-        className={`${bar} top-1/2 -translate-y-1/2 ${open ? "opacity-0" : "opacity-100"}`}
-      />
-      <span
-        className={`${bar} ${open ? "top-1/2 -translate-y-1/2 -rotate-45" : "top-[13px]"}`}
-      />
+      <span className={`${bar} ${open ? "top-1/2 -translate-y-1/2 rotate-45" : "top-[5px]"}`} />
+      <span className={`${bar} top-1/2 -translate-y-1/2 ${open ? "opacity-0" : "opacity-100"}`} />
+      <span className={`${bar} ${open ? "top-1/2 -translate-y-1/2 -rotate-45" : "top-[14px]"}`} />
     </span>
   );
 }
