@@ -1,12 +1,14 @@
-// Save as lib/attendanceApi.ts (next to lib/api).
-// If lib/api already has a shared request helper / base URL, use it here instead of getJson().
 import type { AttendanceStatus } from "./api";
 
 const API_BASE = (
   process.env.NEXT_PUBLIC_BACKEND_API_URL ??
-  "https://erp-backend-1-y2er.onrender.com"
+  "http://127.0.0.1:8000"
 ).replace(/\/$/, "");
-// One period of a class on a date. ready = false -> the slot has no subject/staff yet, so no session exists.
+
+// ============================================================
+// TYPES
+// ============================================================
+
 export type ClassDaySession = {
   timetable_id: number;
   period_number: number | null;
@@ -51,52 +53,158 @@ export type ClassRoster = {
   students: RosterStudent[];
 };
 
-async function getJson<T>(path: string, params: Record<string, string | number | undefined>): Promise<T> {
+// ============================================================
+// GENERIC GET
+// ============================================================
+
+async function getJson<T>(
+  path: string,
+  params: Record<string, string | number | undefined>
+): Promise<T> {
   const query = new URLSearchParams();
+
   for (const [key, value] of Object.entries(params)) {
-    if (value !== undefined) query.set(key, String(value));
+    if (value !== undefined && value !== null) {
+      query.set(key, String(value));
+    }
   }
 
-  const response = await fetch(`${API_BASE}${path}?${query.toString()}`, { cache: "no-store" });
+  const url = `${API_BASE}${path}?${query.toString()}`;
+
+  console.log("API GET:", url);
+
+  const response = await fetch(url, {
+    cache: "no-store",
+  });
 
   if (!response.ok) {
     let message = `Request failed (${response.status})`;
+
     try {
       const body = await response.json();
+
+      console.error("API ERROR:", {
+        url,
+        status: response.status,
+        body,
+      });
+
       if (typeof body?.detail === "string") {
         message = body.detail;
       } else if (Array.isArray(body?.detail)) {
-        message = body.detail.map((item: { msg?: string }) => item.msg).filter(Boolean).join(", ") || message;
+        message =
+          body.detail
+            .map((item: { msg?: string; loc?: unknown; input?: unknown }) => {
+              const location = Array.isArray(item.loc)
+                ? ` [${item.loc.join(".")}]`
+                : "";
+
+              const input =
+                item.input !== undefined
+                  ? ` (input: ${JSON.stringify(item.input)})`
+                  : "";
+
+              return `${item.msg ?? "Validation error"}${location}${input}`;
+            })
+            .filter(Boolean)
+            .join(", ") || message;
       }
     } catch {
-      // keep the generic message
+      // Keep generic error message.
     }
+
     throw new Error(message);
   }
 
   return (await response.json()) as T;
 }
 
-// GET /api/scheduling/sessions/by-class  (creates any missing sessions for assigned slots)
-export function getClassDaySessions(args: { gradeId: number; sectionId: number; date: string }) {
-  return getJson<ClassDaySessions>("/api/scheduling/sessions/by-class", {
-    grade_id: args.gradeId,
-    section_id: args.sectionId,
-    session_date: args.date,
-  });
+// ============================================================
+// CLASS SCHEDULE
+// ============================================================
+
+export function getClassDaySessions(args: {
+  gradeId: number;
+  sectionId: number;
+  date: string;
+}) {
+  return getJson<ClassDaySessions>(
+    "/api/scheduling/sessions/by-class",
+    {
+      grade_id: args.gradeId,
+      section_id: args.sectionId,
+      session_date: args.date,
+    }
+  );
 }
 
-// GET /api/attendance/roster  (students of the class; attendance included when sessionId is given)
-export function getClassRoster(args: { gradeId: number; sectionId: number; date: string; sessionId?: number }) {
-  return getJson<ClassRoster>("/api/attendance/roster", {
-    grade_id: args.gradeId,
-    section_id: args.sectionId,
-    session_date: args.date,
-    session_id: args.sessionId,
-  });
+// ============================================================
+// STAFF SCHEDULE
+// ============================================================
+
+export type StaffClassSession = {
+  timetable_id: number;
+  grade_id: number;
+  section_id: number;
+  grade?: string | null;
+  section?: string | null;
+  academic_year?: string | null;
+  period_number: number | null;
+  day_of_week: number;
+  start_time: string;
+  end_time: string;
+  subject_id: number | null;
+  staff_id: number | null;
+  session_id: number | null;
+  session_date?: string | null;
+  is_conducted?: boolean;
+  ready?: boolean;
+};
+
+export type StaffClassSessionsResponse = {
+  staff_id: number;
+  sessions: StaffClassSession[];
+};
+
+export function getStaffClassSessions(staffId: number) {
+  const id = Number(staffId);
+
+  if (!Number.isInteger(id) || id <= 0) {
+    throw new Error(`Invalid staff ID: ${staffId}`);
+  }
+
+  return getJson<StaffClassSessionsResponse>(
+    "/api/scheduling/sessions/by-staff",
+    {
+      staff_id: id,
+    }
+  );
 }
 
-// ---- Student attendance report (roll number -> percentage + every class) ----
+// ============================================================
+// ATTENDANCE ROSTER
+// ============================================================
+
+export function getClassRoster(args: {
+  gradeId: number;
+  sectionId: number;
+  date: string;
+  sessionId?: number;
+}) {
+  return getJson<ClassRoster>(
+    "/api/attendance/roster",
+    {
+      grade_id: args.gradeId,
+      section_id: args.sectionId,
+      session_date: args.date,
+      session_id: args.sessionId,
+    }
+  );
+}
+
+// ============================================================
+// STUDENT ATTENDANCE REPORT
+// ============================================================
 
 export type StudentAttendanceItem = {
   attendance_id: number;
@@ -120,7 +228,7 @@ export type StudentAttendanceReport = {
     section: string | null;
   };
   total_classes: number;
-  attended_classes: number; // PRESENT + LATE
+  attended_classes: number;
   present: number;
   absent: number;
   late: number;
@@ -129,12 +237,17 @@ export type StudentAttendanceReport = {
   records: StudentAttendanceItem[];
 };
 
-// GET /api/attendance/student-report
-// Pass gradeId + sectionId together when the same roll number exists in more than one class.
-export function getStudentReport(args: { rollNumber: string; gradeId?: number; sectionId?: number }) {
-  return getJson<StudentAttendanceReport>("/api/attendance/student-report", {
-    roll_number: args.rollNumber,
-    grade_id: args.gradeId,
-    section_id: args.sectionId,
-  });
+export function getStudentReport(args: {
+  rollNumber: string;
+  gradeId?: number;
+  sectionId?: number;
+}) {
+  return getJson<StudentAttendanceReport>(
+    "/api/attendance/student-report",
+    {
+      roll_number: args.rollNumber,
+      grade_id: args.gradeId,
+      section_id: args.sectionId,
+    }
+  );
 }
