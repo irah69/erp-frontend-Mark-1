@@ -120,17 +120,25 @@ export default function StaffAssignmentDebug() {
       // 4. LOAD STAFF ASSIGNED CLASSES
       // --------------------------------------------------
 
+      const sessionDate = new Date()
+        .toLocaleDateString("en-CA", {
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit",
+        })
+        .replace(/\//g, "-");
+
       console.log(
-        "[4] Calling /api/scheduling/sessions/by-staff"
+        "[4] Calling /api/attendance/teacher/classes"
       );
 
       console.log(
-        "[4] Sending staff_id:",
-        personId
+        "[4] session_date:",
+        sessionDate
       );
 
       const staffClassesResponse =
-        await getStaffClassSessions(personId);
+        await getStaffClassSessions(sessionDate);
 
       console.log(
         "[4] Staff class response:"
@@ -141,7 +149,7 @@ export default function StaffAssignmentDebug() {
       );
 
       const staffClasses =
-        staffClassesResponse.sessions ?? [];
+        staffClassesResponse.classes ?? [];
 
       console.log(
         `[4] Assigned sessions: ${staffClasses.length}`
@@ -195,6 +203,11 @@ export default function StaffAssignmentDebug() {
           console.log(
             "Subject ID:",
             item.subject_id
+          );
+
+          console.log(
+            "Subject name:",
+            item.subject_name
           );
 
           console.log(
@@ -268,7 +281,11 @@ export default function StaffAssignmentDebug() {
   }
 
   useEffect(() => {
-    void loadDebugData();
+    const timer = window.setTimeout(() => {
+      void loadDebugData();
+    }, 0);
+
+    return () => window.clearTimeout(timer);
   }, []);
 
   // --------------------------------------------------

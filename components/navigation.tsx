@@ -11,6 +11,7 @@ const navigationItems = [
   { href: "/students", label: "Students", adminOnly: true },
   { href: "/scheduling", label: "Scheduling", adminOnly: true },
   { href: "/attendance", label: "Attendance", adminOnly: true },
+  { href: "/staff-attendance", label: "Attendance", staffOnly: true },
   { href: "/users", label: "Users", adminOnly: true },
 ];
 
@@ -70,7 +71,11 @@ export default function Navigation() {
 
   if (hidden) return null;
 
-  const links = navigationItems.filter((item) => !item.adminOnly || user?.role_id === 1);
+  const links = navigationItems.filter(
+    (item) =>
+      (!item.adminOnly || user?.role_id === 1) &&
+      (!("staffOnly" in item) || !item.staffOnly || user?.role_id === 2)
+  );
   const isActive = (href: string) => pathname === href || pathname?.startsWith(`${href}/`);
 
   const linkClass = (href: string) =>

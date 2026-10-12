@@ -1,5 +1,5 @@
 "use client";
-import StaffAssignmentDebug from "../../components/StaffAssignmentDebug";
+
 import Link from "next/link";
 import type { CurrentUser } from "../../lib/auth";
 
@@ -29,7 +29,7 @@ export default function StaffDashboard({
               Schedule
             </Link>
 
-            <Link href="/staff-debug" className="staff-nav-link">
+            <Link href="/staff-attendance" className="staff-nav-link">
               Attendance
             </Link>
 
@@ -90,7 +90,7 @@ export default function StaffDashboard({
                 <span className="staff-action-arrow">→</span>
               </Link>
 
-              <Link href="/attendance" className="staff-action-card">
+              <Link href="/staff-attendance" className="staff-action-card">
                 <div className="staff-action-icon attendance-icon">
                   <span>✓</span>
                 </div>

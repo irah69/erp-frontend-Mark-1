@@ -1,9 +1,4 @@
-import type { AttendanceStatus } from "./api";
-
-const API_BASE = (
-  process.env.NEXT_PUBLIC_BACKEND_API_URL ??
-  "https://erp-backend-1-y2er.onrender.com"
-).replace(/\/$/, "");
+import { apiRequest, type AttendanceStatus } from "./api";
 
 // ============================================================
 // TYPES
@@ -69,54 +64,11 @@ async function getJson<T>(
     }
   }
 
-  const url = `${API_BASE}${path}?${query.toString()}`;
-
-  console.log("API GET:", url);
-
-  const response = await fetch(url, {
-    cache: "no-store",
-  });
-
-  if (!response.ok) {
-    let message = `Request failed (${response.status})`;
-
-    try {
-      const body = await response.json();
-
-      console.error("API ERROR:", {
-        url,
-        status: response.status,
-        body,
-      });
-
-      if (typeof body?.detail === "string") {
-        message = body.detail;
-      } else if (Array.isArray(body?.detail)) {
-        message =
-          body.detail
-            .map((item: { msg?: string; loc?: unknown; input?: unknown }) => {
-              const location = Array.isArray(item.loc)
-                ? ` [${item.loc.join(".")}]`
-                : "";
-
-              const input =
-                item.input !== undefined
-                  ? ` (input: ${JSON.stringify(item.input)})`
-                  : "";
-
-              return `${item.msg ?? "Validation error"}${location}${input}`;
-            })
-            .filter(Boolean)
-            .join(", ") || message;
-      }
-    } catch {
-      // Keep generic error message.
-    }
-
-    throw new Error(message);
-  }
-
-  return (await response.json()) as T;
+  const queryString = query.toString();
+  return apiRequest<T>(
+    `${path}${queryString ? `?${queryString}` : ""}`,
+    { cache: "no-store" }
+  );
 }
 
 // ============================================================
@@ -143,42 +95,92 @@ export function getClassDaySessions(args: {
 // ============================================================
 
 export type StaffClassSession = {
+  session_id: number;
   timetable_id: number;
+  session_date: string;
   grade_id: number;
   section_id: number;
   grade?: string | null;
   section?: string | null;
-  academic_year?: string | null;
+  subject_id: number | null;
+  subject_name?: string | null;
   period_number: number | null;
-  day_of_week: number;
   start_time: string;
   end_time: string;
-  subject_id: number | null;
-  staff_id: number | null;
-  session_id: number | null;
-  session_date?: string | null;
+  room?: string | null;
   is_conducted?: boolean;
+  staff_id?: number | null;
+  academic_year?: string | null;
+  day_of_week?: number;
   ready?: boolean;
 };
 
 export type StaffClassSessionsResponse = {
-  staff_id: number;
-  sessions: StaffClassSession[];
+  session_date: string;
+  classes: StaffClassSession[];
 };
 
-export function getStaffClassSessions(staffId: number) {
-  const id = Number(staffId);
-
-  if (!Number.isInteger(id) || id <= 0) {
-    throw new Error(`Invalid staff ID: ${staffId}`);
-  }
-
+export function getStaffClassSessions(sessionDate: string) {
   return getJson<StaffClassSessionsResponse>(
-    "/api/scheduling/sessions/by-staff",
+    "/api/attendance/teacher/classes",
     {
-      staff_id: id,
+      session_date: sessionDate,
     }
   );
+}
+
+export type TeacherAttendanceStudent = {
+  id: number;
+  name: string | null;
+  roll_number: string | null;
+  attendance_id: number | null;
+  status: AttendanceStatus | null;
+  remarks: string | null;
+};
+
+export type TeacherAttendanceRoster = {
+  session_id: number;
+  session_date: string;
+  grade_id: number;
+  section_id: number;
+  grade: string | null;
+  section: string | null;
+  total_students: number;
+  marked_students: number;
+  students: TeacherAttendanceStudent[];
+};
+
+export function getTeacherAttendanceRoster(sessionId: number) {
+  if (!Number.isInteger(sessionId) || sessionId <= 0) {
+    throw new Error(`Invalid class session ID: ${sessionId}`);
+  }
+
+  return apiRequest<TeacherAttendanceRoster>(
+    `/api/attendance/teacher/sessions/${sessionId}/roster`,
+    { cache: "no-store" }
+  );
+}
+
+export function saveTeacherAttendance(
+  sessionId: number,
+  records: Array<{
+    student_id: number;
+    status: AttendanceStatus;
+    remarks: string | null;
+  }>
+) {
+  if (!Number.isInteger(sessionId) || sessionId <= 0) {
+    throw new Error(`Invalid class session ID: ${sessionId}`);
+  }
+
+  return apiRequest<{
+    success: boolean;
+    message: string;
+    count: number;
+  }>(`/api/attendance/teacher/sessions/${sessionId}/attendance`, {
+    method: "PUT",
+    body: JSON.stringify({ records }),
+  });
 }
 
 // ============================================================
