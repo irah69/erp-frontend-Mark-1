@@ -19,7 +19,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { useEffect, useState } from "react";
-
+import Image from "next/image";
 import { checkSession, logout, type CurrentUser } from "../lib/auth";
 
 type NavigationItem = {
@@ -111,22 +111,51 @@ export default function Sidebar() {
       )}
 
       <aside className={`app-sidebar${mobileOpen ? " app-sidebar-mobile-open" : ""}`}>
-        <div className="sidebar-top">
-          <Link href="/dashboard" className="sidebar-brand" aria-label="Student ERP dashboard">
-            <span className="sidebar-brand-mark">S</span>
-            <span className="sidebar-brand-name">Student ERP</span>
-          </Link>
-          <button
-            type="button"
-            className="sidebar-mobile-toggle"
-            onClick={() => setMobilePath((currentPath) => currentPath === pathname ? null : pathname)}
-            aria-expanded={mobileOpen}
-            aria-controls="sidebar-links"
-            aria-label={mobileOpen ? "Close navigation menu" : "Open navigation menu"}
-          >
-            {mobileOpen ? <X size={20} /> : <Menu size={20} />}
-          </button>
-        </div>
+
+<div className="flex min-h-[100px] items-center justify-between gap-3 px-5 py-5">
+  <Link
+    href="/dashboard"
+    className="group flex min-w-0 items-center gap-3.5 no-underline"
+    aria-label="Solvane Student ERP dashboard"
+  >
+    <Image
+      src="/logo.png"
+      alt="Solvane logo"
+      width={52}
+      height={52}
+      className="h-[52px] w-[52px] shrink-0 object-contain"
+      priority
+    />
+
+    <span className="flex min-w-0 flex-col justify-center gap-1">
+      <span className="text-[26px] font-extrabold leading-none tracking-tight">
+        Solvane
+      </span>
+
+      <span className="text-[9px] font-semibold uppercase tracking-[1.6px] text-gray-500">
+        Powered by <span className="font-extrabold text-grey-900">IRAH</span>
+      </span>
+    </span>
+  </Link>
+
+  <button
+    type="button"
+    className="shrink-0 rounded-lg p-2 transition-colors hover:bg-gray-100"
+    onClick={() =>
+      setMobilePath((currentPath) =>
+        currentPath === pathname ? null : pathname
+      )
+    }
+    aria-expanded={mobileOpen}
+    aria-controls="sidebar-links"
+    aria-label={
+      mobileOpen ? "Close navigation menu" : "Open navigation menu"
+    }
+  >
+    {mobileOpen ? <X size={20} /> : <Menu size={20} />}
+  </button>
+</div>
+
 
         <div className="sidebar-user">
           <span className="sidebar-avatar" aria-hidden="true">{initials}</span>
