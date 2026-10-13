@@ -25,11 +25,24 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full">
+      <body className="min-h-dvh bg-gray-50 text-gray-900">
         <SessionGuard />
-        <div className="app-shell">
+
+        <div className="group/shell min-h-dvh">
           <Sidebar />
-          <main className="app-content">{children}</main>
+
+          <main
+  className="
+    min-h-dvh w-full min-w-0
+    transition-[padding] duration-300 ease-out motion-reduce:transition-none
+    group-has-[#app-sidebar]/shell:pt-16
+    lg:group-has-[#app-sidebar]/shell:pt-0
+    lg:group-has-[#app-sidebar[data-pinned='false']]/shell:pl-20
+    lg:group-has-[#app-sidebar[data-pinned='true']]/shell:pl-72
+  "
+>
+            {children}
+          </main>
         </div>
       </body>
     </html>
