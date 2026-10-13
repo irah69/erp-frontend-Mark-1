@@ -1,6 +1,6 @@
 export const API_BASE_URL =
   process.env.NEXT_PUBLIC_BACKEND_API_URL ??
-  "http://127.0.0.1:8000";
+  "https://erp-backend-1-y2er.onrender.com";
 
 export type ApiRequestError = Error & {
   status?: number;
