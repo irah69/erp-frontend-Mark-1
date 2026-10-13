@@ -18,8 +18,6 @@ export default function AdminDashboard({
       </p>
 
       <div className="dashboard-actions">
-
-        {/* Students */}
         <Link
           className="dashboard-action"
           href="/students"
@@ -30,7 +28,6 @@ export default function AdminDashboard({
           </span>
         </Link>
 
-        {/* Staff */}
         <Link
           className="dashboard-action"
           href="/staff"
@@ -41,7 +38,6 @@ export default function AdminDashboard({
           </span>
         </Link>
 
-        {/* Users */}
         <Link
           className="dashboard-action"
           href="/users"
@@ -52,7 +48,6 @@ export default function AdminDashboard({
           </span>
         </Link>
 
-        {/* Class overview */}
         <Link
           className="dashboard-action"
           href="/class"
@@ -63,7 +58,6 @@ export default function AdminDashboard({
           </span>
         </Link>
 
-        {/* Grades */}
         <Link
           className="dashboard-action"
           href="/academic"
@@ -76,35 +70,6 @@ export default function AdminDashboard({
 
       </div>
 
-      <div className="user-info-card">
-        <p className="eyebrow">
-          Signed-in administrator
-        </p>
-
-        <div className="info-grid">
-
-          <span>
-            Username
-            <strong>{user.username}</strong>
-          </span>
-
-          <span>
-            Email
-            <strong>{user.email}</strong>
-          </span>
-
-          <span>
-            User ID
-            <strong>{user.id}</strong>
-          </span>
-
-          <span>
-            Role ID
-            <strong>{user.role_id}</strong>
-          </span>
-
-        </div>
-      </div>
     </section>
   );
 }

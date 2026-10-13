@@ -10,10 +10,8 @@ export default function StaffDashboard({
 }) {
   return (
     <section className="staff-dashboard">
-      {/* Main content */}
       <main className="staff-dashboard-content">
         <div className="staff-container">
-          {/* Header */}
           <section className="staff-hero">
             <div>
               <p className="staff-eyebrow">Staff workspace</p>
@@ -29,18 +27,12 @@ export default function StaffDashboard({
               </p>
             </div>
 
-            <div className="staff-role-badge">
-              <span className="staff-role-dot" />
-              Staff
-            </div>
           </section>
 
-          {/* Quick actions */}
           <section className="staff-section">
             <div className="staff-section-heading">
               <div>
-                <p className="staff-eyebrow">Quick access</p>
-                <h2>Manage your workspace</h2>
+                <h2>Your tools</h2>
               </div>
             </div>
 
@@ -92,71 +84,6 @@ export default function StaffDashboard({
             </div>
           </section>
 
-          {/* Account information */}
-          <section className="staff-section">
-            <div className="staff-section-heading">
-              <div>
-                <p className="staff-eyebrow">Account</p>
-                <h2>Your account</h2>
-              </div>
-            </div>
-
-            <div className="staff-account-card">
-              <div className="staff-account-grid">
-                <div className="staff-info-item">
-                  <span>Username</span>
-                  <strong>{user.username}</strong>
-                </div>
-
-                <div className="staff-info-item">
-                  <span>Email</span>
-                  <strong>{user.email}</strong>
-                </div>
-
-                <div className="staff-info-item">
-                  <span>User ID</span>
-                  <strong>{user.id}</strong>
-                </div>
-
-                <div className="staff-info-item">
-                  <span>Staff ID</span>
-                  <strong>{user.person_id ?? "—"}</strong>
-                </div>
-
-                <div className="staff-info-item">
-                  <span>Role ID</span>
-                  <strong>{user.role_id}</strong>
-                </div>
-
-                <div className="staff-info-item">
-                  <span>Account status</span>
-                  <strong
-                    className={
-                      user.is_active
-                        ? "staff-status-active"
-                        : "staff-status-inactive"
-                    }
-                  >
-                    {user.is_active ? "Active" : "Inactive"}
-                  </strong>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          {/* Information */}
-          <section className="staff-info-banner">
-            <div className="staff-info-banner-icon">i</div>
-
-            <div>
-              <strong>Staff access</strong>
-
-              <p>
-                Your schedule and attendance workspace is limited to the
-                classes assigned to your staff account.
-              </p>
-            </div>
-          </section>
         </div>
       </main>
 
@@ -178,8 +105,6 @@ export default function StaffDashboard({
           color: #0f172a;
         }
 
-        /* CONTENT */
-
         .staff-dashboard-content {
           width: 100%;
           padding: 42px 24px 70px;
@@ -189,8 +114,6 @@ export default function StaffDashboard({
           max-width: 1200px;
           margin: 0 auto;
         }
-
-        /* HERO */
 
         .staff-hero {
           display: flex;
@@ -236,33 +159,6 @@ export default function StaffDashboard({
           line-height: 1.7;
         }
 
-        .staff-role-badge {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          padding: 9px 14px;
-          border-radius: 999px;
-          background: #f1f5f9;
-          border: 1px solid rgba(15, 23, 42, 0.08);
-          color: #334155;
-          font-size: 13px;
-          font-weight: 700;
-          white-space: nowrap;
-          box-shadow:
-            0 3px 8px rgba(15, 23, 42, 0.05),
-            inset 0 1px 1px rgba(255, 255, 255, 0.8);
-        }
-
-        .staff-role-dot {
-          width: 8px;
-          height: 8px;
-          border-radius: 50%;
-          background: #22c55e;
-          box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.1);
-        }
-
-        /* SECTIONS */
-
         .staff-section {
           margin-top: 34px;
         }
@@ -278,8 +174,6 @@ export default function StaffDashboard({
           font-weight: 800;
           letter-spacing: -0.4px;
         }
-
-        /* ACTION CARDS */
 
         .staff-action-grid {
           display: grid;
@@ -377,110 +271,9 @@ export default function StaffDashboard({
           color: #2563eb;
         }
 
-        /* ACCOUNT */
-
-        .staff-account-card {
-          padding: 24px;
-          border-radius: 20px;
-          background: rgba(255, 255, 255, 0.9);
-          border: 1px solid rgba(15, 23, 42, 0.07);
-          box-shadow:
-            0 7px 18px rgba(15, 23, 42, 0.04),
-            0 18px 36px rgba(15, 23, 42, 0.05);
-        }
-
-        .staff-account-grid {
-          display: grid;
-          grid-template-columns: repeat(3, 1fr);
-          gap: 1px;
-          overflow: hidden;
-          border-radius: 14px;
-          background: rgba(15, 23, 42, 0.06);
-        }
-
-        .staff-info-item {
-          display: flex;
-          flex-direction: column;
-          gap: 6px;
-          padding: 18px;
-          background: #ffffff;
-        }
-
-        .staff-info-item span {
-          color: #94a3b8;
-          font-size: 11px;
-          font-weight: 800;
-          text-transform: uppercase;
-          letter-spacing: 0.08em;
-        }
-
-        .staff-info-item strong {
-          color: #1e293b;
-          font-size: 14px;
-          font-weight: 700;
-          word-break: break-word;
-        }
-
-        .staff-status-active {
-          color: #16a34a !important;
-        }
-
-        .staff-status-inactive {
-          color: #dc2626 !important;
-        }
-
-        /* INFO */
-
-        .staff-info-banner {
-          display: flex;
-          align-items: flex-start;
-          gap: 14px;
-          margin-top: 28px;
-          padding: 18px 20px;
-          border-radius: 16px;
-          background: rgba(239, 246, 255, 0.8);
-          border: 1px solid rgba(37, 99, 235, 0.1);
-          box-shadow:
-            0 5px 14px rgba(15, 23, 42, 0.04),
-            inset 0 1px 1px rgba(255, 255, 255, 0.8);
-        }
-
-        .staff-info-banner-icon {
-          width: 28px;
-          height: 28px;
-          flex: 0 0 28px;
-          display: grid;
-          place-items: center;
-          border-radius: 50%;
-          background: #dbeafe;
-          color: #2563eb;
-          font-size: 14px;
-          font-weight: 800;
-        }
-
-        .staff-info-banner strong {
-          display: block;
-          margin-bottom: 4px;
-          color: #1e3a8a;
-          font-size: 13px;
-        }
-
-        .staff-info-banner p {
-          margin: 0;
-          color: #64748b;
-          font-size: 13px;
-          line-height: 1.6;
-        }
-
-        /* RESPONSIVE */
-
         @media (max-width: 900px) {
           .staff-action-grid {
             grid-template-columns: 1fr;
-          }
-
-          .staff-account-grid {
-            grid-template-columns: repeat(2, 1fr);
           }
         }
 
@@ -494,23 +287,11 @@ export default function StaffDashboard({
             padding: 24px;
             border-radius: 20px;
           }
-
-          .staff-role-badge {
-            align-self: flex-start;
-          }
         }
 
         @media (max-width: 520px) {
           .staff-hero h1 {
             font-size: 31px;
-          }
-
-          .staff-account-grid {
-            grid-template-columns: 1fr;
-          }
-
-          .staff-account-card {
-            padding: 15px;
           }
 
           .staff-action-card {

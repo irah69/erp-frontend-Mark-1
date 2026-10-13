@@ -43,9 +43,6 @@ export default function StudentDashboard({
           );
         }
 
-        // ---------------------------------------------------------
-        // 1. Get all students
-        // ---------------------------------------------------------
         const response =
           await getSchedulingStudents();
 
@@ -54,9 +51,6 @@ export default function StudentDashboard({
             ? response
             : response.students ?? [];
 
-        // ---------------------------------------------------------
-        // 2. Find logged-in student
-        // ---------------------------------------------------------
         const currentStudent =
           students.find(
             (item) =>
@@ -72,9 +66,6 @@ export default function StudentDashboard({
 
         setStudent(currentStudent);
 
-        // ---------------------------------------------------------
-        // 3. Get attendance
-        // ---------------------------------------------------------
         if (!currentStudent.roll_number) {
           throw new Error(
             "Student does not have a roll number."
@@ -102,9 +93,6 @@ export default function StudentDashboard({
     loadDashboard();
   }, [user.person_id]);
 
-  // ---------------------------------------------------------
-  // Loading
-  // ---------------------------------------------------------
   if (loading) {
     return (
       <>
@@ -188,9 +176,6 @@ export default function StudentDashboard({
     );
   }
 
-  // ---------------------------------------------------------
-  // Error
-  // ---------------------------------------------------------
   if (error) {
     return (
       <>
@@ -267,9 +252,6 @@ export default function StudentDashboard({
       <main className="student-page">
         <section className="student-container">
 
-          {/* -------------------------------------------------
-              HEADER
-          ------------------------------------------------- */}
           <div className="dashboard-header">
             <div>
               <p className="eyebrow">
@@ -291,28 +273,7 @@ export default function StudentDashboard({
             </div>
           </div>
 
-          {/* -------------------------------------------------
-              QUICK SUMMARY
-          ------------------------------------------------- */}
           <div className="summary-grid">
-
-            <div className="summary-card">
-              <div className="summary-label">
-                Student
-              </div>
-
-              <div className="summary-value">
-                {student?.name ||
-                  "Not available"}
-              </div>
-
-              <div className="summary-subtext">
-                Student ID:{" "}
-                {student?.id ??
-                  user.person_id}
-              </div>
-            </div>
-
             <div className="summary-card">
               <div className="summary-label">
                 Class
@@ -348,9 +309,6 @@ export default function StudentDashboard({
 
           </div>
 
-          {/* -------------------------------------------------
-              ATTENDANCE
-          ------------------------------------------------- */}
           {attendance && (
             <div className="dashboard-card">
               <div className="card-header">
@@ -417,9 +375,6 @@ export default function StudentDashboard({
             </div>
           )}
 
-          {/* -------------------------------------------------
-              RECENT ATTENDANCE
-          ------------------------------------------------- */}
           {attendance &&
             attendance.records.length > 0 && (
               <div className="dashboard-card">
@@ -734,8 +689,7 @@ export default function StudentDashboard({
 
         @media (max-width: 900px) {
           .summary-grid {
-            grid-template-columns:
-              1fr;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
           }
 
           .attendance-grid {
@@ -745,6 +699,10 @@ export default function StudentDashboard({
         }
 
         @media (max-width: 600px) {
+          .summary-grid {
+            grid-template-columns: 1fr;
+          }
+
           .student-container {
             padding: 28px 16px 45px;
           }

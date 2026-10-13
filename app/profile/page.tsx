@@ -4,568 +4,290 @@ import { useEffect, useState } from "react";
 
 import {
   getCurrentUser,
+  getSchedulingStaff,
   getSchedulingStudents,
+  type StaffOption,
   type StudentRecord,
 } from "../../lib/api";
+import type { CurrentUserResponse } from "../../lib/api";
 
-import type { CurrentUser } from "../../lib/auth";
+type ProfileRecord =
+  | { kind: "staff"; record: StaffOption }
+  | { kind: "student"; record: StudentRecord };
+
+function getDisplayName(user: CurrentUserResponse, profile: ProfileRecord) {
+  return profile.record.name || user.username;
+}
 
 export default function ProfilePage() {
-  const [user, setUser] =
-    useState<CurrentUser | null>(null);
-
-  const [student, setStudent] =
-    useState<StudentRecord | null>(null);
-
-  const [loading, setLoading] =
-    useState(true);
-
-  const [error, setError] =
-    useState<string | null>(null);
+  const [user, setUser] = useState<CurrentUserResponse | null>(null);
+  const [profile, setProfile] = useState<ProfileRecord | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
+    let cancelled = false;
+
     async function loadProfile() {
       try {
-        setLoading(true);
-        setError(null);
-
-        // ---------------------------------------------------------
-        // 1. Get current logged-in user
-        // ---------------------------------------------------------
-        const currentUser =
-          await getCurrentUser();
+        const currentUser = await getCurrentUser();
+        if (cancelled) return;
 
         setUser(currentUser);
 
-        if (!currentUser.person_id) {
-          throw new Error(
-            "Student account is not linked to a student record."
-          );
+        if (currentUser.person_id === null) {
+          throw new Error("Your account is not linked to a profile.");
         }
 
-        // ---------------------------------------------------------
-        // 2. Get students
-        // ---------------------------------------------------------
-        const response =
-          await getSchedulingStudents();
+        if (currentUser.role_id === 2) {
+          const staff = await getSchedulingStaff();
+          const currentStaff = staff.find(
+            (member) => Number(member.id) === Number(currentUser.person_id)
+          );
 
-        const students: StudentRecord[] =
-          Array.isArray(response)
+          if (!currentStaff) {
+            throw new Error("Your staff profile could not be found.");
+          }
+
+          if (!cancelled) setProfile({ kind: "staff", record: currentStaff });
+        } else if (currentUser.role_id === 3) {
+          const response = await getSchedulingStudents();
+          const students = Array.isArray(response)
             ? response
             : response.students ?? [];
-
-        // ---------------------------------------------------------
-        // 3. Find current student
-        // ---------------------------------------------------------
-        const currentStudent =
-          students.find(
-            (item) =>
-              Number(item.id) ===
-              Number(currentUser.person_id)
+          const currentStudent = students.find(
+            (student) => Number(student.id) === Number(currentUser.person_id)
           );
 
-        if (!currentStudent) {
-          throw new Error(
-            "Student record could not be found."
+          if (!currentStudent) {
+            throw new Error("Your student profile could not be found.");
+          }
+
+          if (!cancelled) setProfile({ kind: "student", record: currentStudent });
+        } else {
+          throw new Error("Profiles are not available for this account.");
+        }
+      } catch (loadError) {
+        if (!cancelled) {
+          setError(
+            loadError instanceof Error
+              ? loadError.message
+              : "Unable to load your profile."
           );
         }
-
-        setStudent(currentStudent);
-      } catch (err) {
-        setError(
-          err instanceof Error
-            ? err.message
-            : "Failed to load profile."
-        );
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     }
 
-    loadProfile();
+    void loadProfile();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
-  if (loading) {
-    return (
-      <>
-        <main className="profile-page">
-          <div className="profile-container">
-            <div className="profile-card loading-card">
-              <div className="spinner" />
-
-              <h1>
-                Loading profile...
-              </h1>
-
-              <p>
-                Please wait while we load your
-                profile information.
-              </p>
-            </div>
-          </div>
-        </main>
-
-        <style jsx>{`
-          .profile-page {
-            min-height: calc(100vh - 65px);
-            background: #f8fafc;
-          }
-
-          .profile-container {
-            max-width: 1000px;
-            margin: 0 auto;
-            padding: 42px 24px;
-          }
-
-          .profile-card {
-            background: white;
-            border-radius: 20px;
-            padding: 32px;
-            border: 1px solid
-              rgba(15, 23, 42, 0.06);
-            box-shadow:
-              0 8px 18px rgba(15, 23, 42, 0.05),
-              0 22px 50px rgba(15, 23, 42, 0.08);
-          }
-
-          .loading-card {
-            text-align: center;
-          }
-
-          .spinner {
-            width: 34px;
-            height: 34px;
-            margin: 0 auto 18px;
-            border: 3px solid #e2e8f0;
-            border-top-color: #0f172a;
-            border-radius: 50%;
-            animation: spin 0.8s linear infinite;
-          }
-
-          h1 {
-            margin: 0 0 8px;
-            color: #0f172a;
-          }
-
-          p {
-            color: #64748b;
-          }
-
-          @keyframes spin {
-            to {
-              transform: rotate(360deg);
-            }
-          }
-        `}</style>
-      </>
-    );
-  }
-
-  if (error || !user || !student) {
-    return (
-      <>
-        <main className="profile-page">
-          <div className="profile-container">
-            <div className="profile-card error-card">
-              <div className="error-icon">
-                !
-              </div>
-
-              <h1>
-                Unable to load profile
-              </h1>
-
-              <p>
-                {error ||
-                  "Profile information is unavailable."}
-              </p>
-            </div>
-          </div>
-        </main>
-
-        <style jsx>{`
-          .profile-page {
-            min-height: calc(100vh - 65px);
-            background: #f8fafc;
-          }
-
-          .profile-container {
-            max-width: 1000px;
-            margin: 0 auto;
-            padding: 42px 24px;
-          }
-
-          .profile-card {
-            background: white;
-            border-radius: 20px;
-            padding: 32px;
-            border: 1px solid
-              rgba(15, 23, 42, 0.06);
-            box-shadow:
-              0 8px 18px rgba(15, 23, 42, 0.05),
-              0 22px 50px rgba(15, 23, 42, 0.08);
-            text-align: center;
-          }
-
-          .error-icon {
-            width: 44px;
-            height: 44px;
-            margin: 0 auto 16px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border-radius: 50%;
-            background: #fee2e2;
-            color: #b91c1c;
-            font-weight: 800;
-            font-size: 20px;
-          }
-
-          h1 {
-            margin: 0 0 8px;
-            color: #0f172a;
-          }
-
-          p {
-            color: #64748b;
-          }
-        `}</style>
-      </>
-    );
-  }
+  const displayName = user && profile ? getDisplayName(user, profile) : "";
+  const initials = displayName.slice(0, 1).toUpperCase();
+  const staff = profile?.kind === "staff" ? profile.record : null;
+  const student = profile?.kind === "student" ? profile.record : null;
+  const details = staff
+    ? [
+        { label: "Staff number", value: staff.number },
+        { label: "Status", value: staff.status },
+      ]
+    : student
+      ? [
+          { label: "Roll number", value: student.roll_number },
+          {
+            label: "Grade",
+            value: student.grade && student.section
+              ? `${student.grade} - ${student.section}`
+              : student.grade,
+          },
+          { label: "Status", value: student.status },
+        ]
+      : [];
 
   return (
-    <>
-      <main className="profile-page">
-        <div className="profile-container">
+    <main className="profile-page">
+      <div className="profile-container">
+        <header className="profile-header">
+          <p className="eyebrow">Account</p>
+          <h1>My profile</h1>
+          {!loading && !error && user && <p>{user.email}</p>}
+        </header>
 
-          {/* -------------------------------------------------
-              PAGE HEADER
-          ------------------------------------------------- */}
-          <div className="profile-header">
-            <p className="eyebrow">
-              Student Account
-            </p>
-
-            <h1>
-              My Profile
-            </h1>
-
-            <p>
-              View your student and account
-              information.
-            </p>
-          </div>
-
-          {/* -------------------------------------------------
-              PROFILE HERO
-          ------------------------------------------------- */}
-          <div className="profile-hero">
-            <div className="avatar">
-              {student.name
-                ? student.name
-                    .charAt(0)
-                    .toUpperCase()
-                : "S"}
-            </div>
-
-            <div>
-              <h2>
-                {student.name ||
-                  "Student"}
-              </h2>
-
-              <p>
-                Student ID: {student.id}
-              </p>
-            </div>
-          </div>
-
-          {/* -------------------------------------------------
-              STUDENT INFORMATION
-          ------------------------------------------------- */}
-          <section className="profile-card">
-            <div className="section-heading">
-              <p className="eyebrow">
-                Academic Information
-              </p>
-
-              <h2>
-                Student details
-              </h2>
-            </div>
-
-            <div className="info-grid">
-
-              <div className="info-item">
-                <span>Name</span>
-                <strong>
-                  {student.name ||
-                    "Not available"}
-                </strong>
-              </div>
-
-              <div className="info-item">
-                <span>Roll Number</span>
-                <strong>
-                  {student.roll_number ||
-                    "Not available"}
-                </strong>
-              </div>
-
-              <div className="info-item">
-                <span>Grade</span>
-                <strong>
-                  {student.grade ||
-                    "Not available"}
-                </strong>
-              </div>
-
-              <div className="info-item">
-                <span>Section</span>
-                <strong>
-                  {student.section ||
-                    "Not available"}
-                </strong>
-              </div>
-
-              <div className="info-item">
-                <span>Student ID</span>
-                <strong>
-                  {student.id}
-                </strong>
-              </div>
-
-              <div className="info-item">
-                <span>Status</span>
-                <strong className="active-status">
-                  {student.status ||
-                    "Active"}
-                </strong>
-              </div>
-
-            </div>
+        {loading ? (
+          <section className="profile-card profile-state" aria-live="polite">
+            <span className="profile-spinner" aria-hidden="true" />
+            <p>Loading your profile…</p>
           </section>
-
-          {/* -------------------------------------------------
-              ACCOUNT INFORMATION
-          ------------------------------------------------- */}
-          <section className="profile-card">
-            <div className="section-heading">
-              <p className="eyebrow">
-                Account Information
-              </p>
-
-              <h2>
-                Login details
-              </h2>
-            </div>
-
-            <div className="info-grid">
-
-              <div className="info-item">
-                <span>Username</span>
-                <strong>
-                  {user.username}
-                </strong>
-              </div>
-
-              <div className="info-item">
-                <span>Email</span>
-                <strong>
-                  {user.email}
-                </strong>
-              </div>
-
-              <div className="info-item">
-                <span>Account ID</span>
-                <strong>
-                  {user.id}
-                </strong>
-              </div>
-
-              <div className="info-item">
-                <span>Student ID</span>
-                <strong>
-                  {user.person_id}
-                </strong>
-              </div>
-
-            </div>
+        ) : error ? (
+          <section className="profile-card profile-state" role="alert">
+            <h2>Unable to load profile</h2>
+            <p>{error}</p>
           </section>
+        ) : user && profile ? (
+          <>
+            <section className="profile-hero">
+              <div className="profile-avatar" aria-hidden="true">{initials}</div>
+              <div>
+                <h2>{displayName}</h2>
+                <p>{profile.kind === "staff" ? "Staff" : "Student"}</p>
+              </div>
+            </section>
 
-        </div>
-      </main>
+            <section className="profile-card">
+              <h2>{staff ? "Staff details" : "Academic details"}</h2>
+              <div className="profile-grid">
+                {details.map(({ label, value }) =>
+                  value ? (
+                    <div key={label} className="profile-item">
+                      <span>{label}</span>
+                      <strong>{value}</strong>
+                    </div>
+                  ) : null
+                )}
+              </div>
+            </section>
+          </>
+        ) : null}
+      </div>
 
       <style jsx>{`
         .profile-page {
-          min-height: calc(100vh - 65px);
-          background:
-            radial-gradient(
-              circle at 0% 0%,
-              rgba(226, 232, 240, 0.8),
-              transparent 32%
-            ),
-            radial-gradient(
-              circle at 100% 20%,
-              rgba(241, 245, 249, 0.9),
-              transparent 30%
-            ),
-            #f8fafc;
-        }
-
-        .profile-container {
-          max-width: 1000px;
-          margin: 0 auto;
+          min-height: 100dvh;
+          background: #f8fafc;
           padding: 42px 24px 60px;
         }
 
+        .profile-container {
+          margin: 0 auto;
+          max-width: 920px;
+        }
+
         .profile-header {
-          margin-bottom: 28px;
+          margin-bottom: 26px;
         }
 
         .eyebrow {
-          margin: 0 0 7px;
           color: #64748b;
           font-size: 12px;
-          font-weight: 800;
+          font-weight: 700;
+          letter-spacing: .08em;
+          margin: 0 0 7px;
           text-transform: uppercase;
-          letter-spacing: 0.08em;
         }
 
         .profile-header h1 {
-          margin: 0;
           color: #0f172a;
-          font-size: 38px;
-          letter-spacing: -0.8px;
+          font-size: clamp(30px, 4vw, 38px);
+          letter-spacing: -.04em;
+          margin: 0;
         }
 
-        .profile-header > p:last-child {
-          margin-top: 8px;
+        .profile-header > p:last-child,
+        .profile-hero p,
+        .profile-state p {
           color: #64748b;
+          margin: 8px 0 0;
+        }
+
+        .profile-hero,
+        .profile-card {
+          background: #fff;
+          border: 1px solid #e2e8f0;
+          border-radius: 18px;
+          box-shadow: 0 8px 24px #0f172a0a;
         }
 
         .profile-hero {
-          display: flex;
           align-items: center;
-          gap: 18px;
-          margin-bottom: 22px;
-          padding: 25px;
-          border-radius: 20px;
-          background: white;
-          border: 1px solid
-            rgba(15, 23, 42, 0.06);
-          box-shadow:
-            0 7px 16px rgba(15, 23, 42, 0.05),
-            0 20px 45px rgba(15, 23, 42, 0.08);
+          display: flex;
+          gap: 16px;
+          margin-bottom: 18px;
+          padding: 22px;
         }
 
-        .avatar {
-          width: 64px;
-          height: 64px;
-          flex-shrink: 0;
-          display: flex;
+        .profile-avatar {
           align-items: center;
-          justify-content: center;
+          background: #dbeafe;
           border-radius: 50%;
-          background: #0f172a;
-          color: white;
-          font-size: 24px;
-          font-weight: 800;
-          box-shadow:
-            0 6px 14px
-              rgba(15, 23, 42, 0.2);
+          color: #1d4ed8;
+          display: flex;
+          flex: 0 0 54px;
+          font-size: 20px;
+          font-weight: 700;
+          height: 54px;
+          justify-content: center;
         }
 
-        .profile-hero h2 {
-          margin: 0;
+        .profile-hero h2,
+        .profile-card h2,
+        .profile-state h2 {
           color: #0f172a;
-          font-size: 23px;
-        }
-
-        .profile-hero p {
-          margin: 5px 0 0;
-          color: #64748b;
-          font-size: 13px;
+          font-size: 19px;
+          margin: 0;
         }
 
         .profile-card {
-          margin-bottom: 22px;
-          padding: 27px;
-          border-radius: 19px;
-          background: white;
-          border: 1px solid
-            rgba(15, 23, 42, 0.06);
-          box-shadow:
-            0 6px 14px rgba(15, 23, 42, 0.04),
-            0 18px 40px rgba(15, 23, 42, 0.07);
+          padding: 24px;
         }
 
-        .section-heading {
-          margin-bottom: 22px;
-        }
-
-        .section-heading h2 {
-          margin: 0;
-          color: #0f172a;
-          font-size: 21px;
-        }
-
-        .info-grid {
+        .profile-grid {
           display: grid;
-          grid-template-columns:
-            repeat(2, minmax(0, 1fr));
-          gap: 13px;
+          gap: 12px;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          margin-top: 18px;
         }
 
-        .info-item {
-          padding: 17px;
-          border-radius: 13px;
+        .profile-item {
           background: #f8fafc;
           border: 1px solid #eef2f7;
+          border-radius: 12px;
+          min-width: 0;
+          padding: 15px;
         }
 
-        .info-item span {
-          display: block;
-          margin-bottom: 6px;
+        .profile-item span {
           color: #64748b;
-          font-size: 12px;
-          font-weight: 600;
-        }
-
-        .info-item strong {
           display: block;
-          color: #0f172a;
-          font-size: 15px;
-          word-break: break-word;
+          font-size: 12px;
+          margin-bottom: 6px;
         }
 
-        .active-status {
-          color: #15803d !important;
+        .profile-item strong {
+          color: #0f172a;
+          display: block;
+          font-size: 14px;
+          overflow-wrap: anywhere;
+        }
+
+        .profile-state {
+          padding: 32px;
+          text-align: center;
+        }
+
+        .profile-spinner {
+          animation: profile-spin .8s linear infinite;
+          border: 3px solid #dbeafe;
+          border-radius: 50%;
+          border-top-color: #2563eb;
+          display: inline-block;
+          height: 30px;
+          width: 30px;
+        }
+
+        @keyframes profile-spin {
+          to { transform: rotate(360deg); }
         }
 
         @media (max-width: 600px) {
-          .profile-container {
-            padding: 28px 16px 45px;
-          }
-
-          .profile-header h1 {
-            font-size: 31px;
-          }
-
-          .profile-card {
-            padding: 20px;
-          }
-
-          .profile-hero {
-            padding: 20px;
-          }
-
-          .info-grid {
-            grid-template-columns: 1fr;
-          }
+          .profile-page { padding: 28px 16px 45px; }
+          .profile-grid { grid-template-columns: 1fr; }
+          .profile-card { padding: 19px; }
         }
       `}</style>
-    </>
+    </main>
   );
 }
