@@ -14,8 +14,6 @@ import {
   type StudentAttendanceReport,
 } from "../../lib/attendanceApi";
 
-import DashboardNav from "../../components/dashboardnav";
-
 export default function StudentDashboard({
   user,
 }: {
@@ -110,8 +108,6 @@ export default function StudentDashboard({
   if (loading) {
     return (
       <>
-        <DashboardNav />
-
         <main className="student-page">
           <section className="student-container">
             <div className="dashboard-card loading-card">
@@ -198,8 +194,6 @@ export default function StudentDashboard({
   if (error) {
     return (
       <>
-        <DashboardNav />
-
         <main className="student-page">
           <section className="student-container">
             <div className="dashboard-card error-card">
@@ -270,8 +264,6 @@ export default function StudentDashboard({
 
   return (
     <>
-      <DashboardNav />
-
       <main className="student-page">
         <section className="student-container">
 

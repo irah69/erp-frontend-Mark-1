@@ -6,8 +6,6 @@ import {
   useState,
 } from "react";
 
-import DashboardNav from "../../components/dashboardnav";
-
 import {
   getCurrentUser,
   getSchedulingStudents,
@@ -792,8 +790,6 @@ useEffect(() => {
   if (loading) {
     return (
       <>
-        <DashboardNav />
-
         <main className="schedule-page">
           <div className="schedule-container">
             <div className="state-card">
@@ -883,8 +879,6 @@ useEffect(() => {
   if (error) {
     return (
       <>
-        <DashboardNav />
-
         <main className="schedule-page">
           <div className="schedule-container">
             <div className="state-card">
@@ -1002,8 +996,6 @@ useEffect(() => {
 
   return (
     <>
-      <DashboardNav />
-
       <main className="schedule-page">
         <div className="schedule-container">
 

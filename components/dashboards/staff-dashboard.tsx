@@ -10,36 +10,6 @@ export default function StaffDashboard({
 }) {
   return (
     <section className="staff-dashboard">
-      {/* Navigation */}
-      <nav className="staff-nav">
-        <div className="staff-nav-inner">
-          <Link href="/dashboard" className="staff-brand">
-            School ERP
-          </Link>
-
-          <div className="staff-nav-links">
-            <Link
-              href="/dashboard"
-              className="staff-nav-link staff-nav-link-active"
-            >
-              Dashboard
-            </Link>
-
-            <Link href="/schedule" className="staff-nav-link">
-              Schedule
-            </Link>
-
-            <Link href="/staff-attendance" className="staff-nav-link">
-              Attendance
-            </Link>
-
-            <Link href="/profile" className="staff-nav-link">
-              Profile
-            </Link>
-          </div>
-        </div>
-      </nav>
-
       {/* Main content */}
       <main className="staff-dashboard-content">
         <div className="staff-container">
@@ -206,84 +176,6 @@ export default function StaffDashboard({
             ),
             #f8fafc;
           color: #0f172a;
-        }
-
-        /* NAVIGATION */
-
-        .staff-nav {
-          position: sticky;
-          top: 0;
-          z-index: 100;
-          width: 100%;
-          background: rgba(255, 255, 255, 0.92);
-          backdrop-filter: blur(16px);
-          -webkit-backdrop-filter: blur(16px);
-          border-bottom: 1px solid rgba(15, 23, 42, 0.08);
-          box-shadow:
-            0 4px 12px rgba(15, 23, 42, 0.04),
-            0 12px 30px rgba(15, 23, 42, 0.06);
-        }
-
-        .staff-nav-inner {
-          max-width: 1200px;
-          margin: 0 auto;
-          padding: 14px 24px;
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 24px;
-        }
-
-        .staff-brand {
-          color: #111827;
-          text-decoration: none;
-          font-size: 20px;
-          font-weight: 800;
-          letter-spacing: -0.5px;
-          white-space: nowrap;
-        }
-
-        .staff-nav-links {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-        }
-
-        .staff-nav-link {
-          padding: 10px 17px;
-          border-radius: 10px;
-          border: 1px solid rgba(15, 23, 42, 0.08);
-          background: rgba(255, 255, 255, 0.96);
-          color: #64748b;
-          text-decoration: none;
-          font-size: 14px;
-          font-weight: 650;
-          box-shadow:
-            0 2px 5px rgba(15, 23, 42, 0.05),
-            0 6px 14px rgba(15, 23, 42, 0.05);
-          transition:
-            transform 0.2s ease,
-            color 0.2s ease,
-            background 0.2s ease,
-            box-shadow 0.2s ease;
-        }
-
-        .staff-nav-link:hover {
-          color: #111827;
-          transform: translateY(-2px);
-          box-shadow:
-            0 4px 8px rgba(15, 23, 42, 0.08),
-            0 10px 20px rgba(15, 23, 42, 0.07);
-        }
-
-        .staff-nav-link-active {
-          color: #111827;
-          background: #eef2f7;
-          border-color: rgba(15, 23, 42, 0.1);
-          box-shadow:
-            inset 0 1px 1px rgba(255, 255, 255, 0.9),
-            0 4px 8px rgba(15, 23, 42, 0.08),
-            0 8px 18px rgba(15, 23, 42, 0.06);
         }
 
         /* CONTENT */
@@ -593,27 +485,6 @@ export default function StaffDashboard({
         }
 
         @media (max-width: 700px) {
-          .staff-nav-inner {
-            padding: 12px 16px;
-            flex-direction: column;
-            align-items: stretch;
-            gap: 12px;
-          }
-
-          .staff-brand {
-            text-align: center;
-          }
-
-          .staff-nav-links {
-            justify-content: center;
-            flex-wrap: wrap;
-          }
-
-          .staff-nav-link {
-            padding: 9px 13px;
-            font-size: 13px;
-          }
-
           .staff-dashboard-content {
             padding: 24px 16px 50px;
           }

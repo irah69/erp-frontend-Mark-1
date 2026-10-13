@@ -2,8 +2,6 @@
 
 import { useEffect, useState } from "react";
 
-import DashboardNav from "../../components/dashboardnav";
-
 import {
   getCurrentUser,
   getSchedulingStudents,
@@ -90,8 +88,6 @@ export default function ProfilePage() {
   if (loading) {
     return (
       <>
-        <DashboardNav />
-
         <main className="profile-page">
           <div className="profile-container">
             <div className="profile-card loading-card">
@@ -168,8 +164,6 @@ export default function ProfilePage() {
   if (error || !user || !student) {
     return (
       <>
-        <DashboardNav />
-
         <main className="profile-page">
           <div className="profile-container">
             <div className="profile-card error-card">
@@ -242,8 +236,6 @@ export default function ProfilePage() {
 
   return (
     <>
-      <DashboardNav />
-
       <main className="profile-page">
         <div className="profile-container">
 
