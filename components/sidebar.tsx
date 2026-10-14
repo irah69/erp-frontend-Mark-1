@@ -42,7 +42,7 @@ const navigationItems: NavigationItem[] = [
   { href: "/users", label: "Users", icon: UsersRound, roles: [1] },
   { href: "/schedule", label: "My schedule", icon: CalendarDays, roles: [2, 3] },
   { href: "/staff-attendance", label: "Attendance", icon: ClipboardCheck, roles: [2] },
-  { href: "/profile", label: "My profile", icon: UserRound, roles: [2, 3] },
+  { href: "/profile", label: "My profile", icon: UserRound, roles: [1, 2, 3, 4] },
 ];
 
 const roleLabels: Record<number, string> = {

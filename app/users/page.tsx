@@ -1,7 +1,8 @@
 "use client";
 
 import { FormEvent, ReactNode, useEffect, useId, useState } from "react";
-import { AlertCircle, Pencil, Plus, Search, Trash2, X } from "lucide-react";
+import Link from "next/link";
+import { AlertCircle, Pencil, Plus, Search, Trash2, UserRound, X } from "lucide-react";
 import { apiRequest } from "../../lib/api";
 
 type User = {
@@ -661,6 +662,9 @@ export default function UsersPage() {
                       </dl>
 
                       <div className="mt-3 flex gap-2">
+                        <Link href={`/users/${user.id}/profile`} className={rowButton}>
+                          <UserRound size={13} aria-hidden="true" /> Profile
+                        </Link>
                         <button type="button" className={rowButton} onClick={() => openEdit(user)}>
                           <Pencil size={13} aria-hidden="true" /> Edit
                         </button>
@@ -705,6 +709,9 @@ export default function UsersPage() {
                           </td>
                           <td className="px-4 py-3">
                             <div className="flex gap-2">
+                              <Link href={`/users/${user.id}/profile`} className={rowButton}>
+                                <UserRound size={13} aria-hidden="true" /> Profile
+                              </Link>
                               <button type="button" className={rowButton} onClick={() => openEdit(user)}>
                                 Edit
                               </button>

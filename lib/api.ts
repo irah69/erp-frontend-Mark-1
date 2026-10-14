@@ -1,6 +1,6 @@
 export const API_BASE_URL =
   process.env.NEXT_PUBLIC_BACKEND_API_URL ??
-  "https://erp-backend-1-y2er.onrender.com";
+  "http://127.0.0.1:8000";
 
 export type ApiRequestError = Error & {
   status?: number;
@@ -180,6 +180,85 @@ export function getCurrentUser() {
   return apiRequest<CurrentUserResponse>(
     "/api/auth/me"
   );
+}
+
+export type UserProfileFields = {
+  full_name: string | null;
+  gender: string | null;
+  date_of_birth: string | null;
+  nationality: string | null;
+  mother_tongue: string | null;
+  religion: string | null;
+  caste_category: string | null;
+  aadhaar_number: string | null;
+  identification_mark_1: string | null;
+  identification_mark_2: string | null;
+  mobile_number: string | null;
+  alternate_mobile_number: string | null;
+  email_address: string | null;
+  father_name: string | null;
+  father_mobile_number: string | null;
+  father_occupation: string | null;
+  mother_name: string | null;
+  mother_mobile_number: string | null;
+  mother_occupation: string | null;
+  spouse_guardian_name: string | null;
+  spouse_guardian_mobile_number: string | null;
+  annual_family_income: string | null;
+  present_house_flat_number: string | null;
+  present_street_locality: string | null;
+  present_village_town_city: string | null;
+  present_mandal_sub_district: string | null;
+  present_district: string | null;
+  present_state: string | null;
+  present_pin_code: string | null;
+  present_country: string | null;
+  same_as_present_address: boolean;
+  permanent_house_flat_number: string | null;
+  permanent_street_locality: string | null;
+  permanent_village_town_city: string | null;
+  permanent_mandal_sub_district: string | null;
+  permanent_district: string | null;
+  permanent_state: string | null;
+  permanent_pin_code: string | null;
+  permanent_country: string | null;
+};
+
+export type UserProfile = UserProfileFields & {
+  user_id: number;
+  updated_at: string | null;
+};
+
+export type UserProfileUpdate = Partial<
+  Omit<UserProfileFields, "annual_family_income"> & {
+    annual_family_income: string | number | null;
+  }
+>;
+
+export function getMyUserProfile() {
+  return apiRequest<UserProfile>("/api/user-details/me", {
+    cache: "no-store",
+  });
+}
+
+export function updateMyUserProfile(update: UserProfileUpdate) {
+  return apiRequest<UserProfile>("/api/user-details/me", {
+    method: "PATCH",
+    body: JSON.stringify(update),
+  });
+}
+
+export function getUserProfile(userId: number) {
+  return apiRequest<UserProfile>(`/api/user-details/${userId}`, {
+    cache: "no-store",
+  });
+}
+
+export function updateUserProfile(userId: number, update: UserProfileUpdate) {
+  return apiRequest<UserProfile>(`/api/user-details/${userId}`, {
+    method: "PATCH",
+    body: JSON.stringify(update),
+  });
 }
 
 /* =========================================================
