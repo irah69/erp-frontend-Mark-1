@@ -142,13 +142,7 @@ export default function LoginPage() {
       {/* Right: form panel */}
       <div className="relative flex items-center justify-center px-6 py-16 sm:px-12 lg:px-16 lg:py-10">
         {/* Back button for screens without the image panel */}
-        <Link
-          href="/"
-          aria-label="Go back"
-          className="absolute left-4 top-4 grid h-10 w-10 place-items-center rounded-full bg-slate-900 text-white transition hover:bg-slate-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-900 focus-visible:ring-offset-2 sm:left-8 sm:top-8 lg:hidden"
-        >
-          <ArrowLeft size={18} />
-        </Link>
+
 
         <motion.div
           variants={containerVariants}

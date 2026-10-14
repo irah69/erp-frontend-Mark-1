@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { Charis_SIL } from "next/font/google";
 import { useEffect, useMemo, useState } from "react";
 import type { AttendanceStatus } from "../../lib/api";
 import {
@@ -10,6 +11,13 @@ import {
   type StaffClassSession,
   type TeacherAttendanceRoster,
 } from "../../lib/attendanceApi";
+
+const charisSil = Charis_SIL({
+  variable: "--font-charis-sil",
+  subsets: ["latin"],
+  weight: ["400", "700"],
+  style: ["normal", "italic"],
+});
 
 const attendanceStatuses: AttendanceStatus[] = [
   "PRESENT",
@@ -196,11 +204,14 @@ export default function StaffAttendancePage() {
     setSuccess("");
 
     try {
-      const result = await saveTeacherAttendance(roster.session_id, roster.students.map((student) => ({
-        student_id: student.id,
-        status: statusChanges[student.id] ?? student.status ?? "ABSENT",
-        remarks: student.remarks,
-      })));
+      const result = await saveTeacherAttendance(
+        roster.session_id,
+        roster.students.map((student) => ({
+          student_id: student.id,
+          status: statusChanges[student.id] ?? student.status ?? "ABSENT",
+          remarks: student.remarks,
+        }))
+      );
 
       setStatusChanges({});
       setSuccess(result.message || "Attendance saved successfully.");
@@ -225,302 +236,278 @@ export default function StaffAttendancePage() {
   }
 
   return (
-    <section className="staff-attendance">
-      <main className="staff-attendance-main">
-        <div className="staff-attendance-container">
-          <Link className="back-link" href="/dashboard">
-            ← Back to staff dashboard
-          </Link>
+    <main className={`${charisSil.className} attendance`}>
+      <div className="container">
 
-          <header className="page-heading">
-            <div>
-              <p className="eyebrow">Staff workspace</p>
-              <h1>Class attendance</h1>
-              <p>
-                Choose one of your assigned sessions, mark each student, and
-                save attendance for that class.
+
+        <header className="page-heading">
+          <div>
+            <h1>Class attendance</h1>
+            <p>
+              Choose one of your assigned sessions, mark each student, and save
+              attendance for that class.
+            </p>
+          </div>
+          <label className="field">
+            Session date
+            <input
+              type="date"
+              value={sessionDate}
+              onChange={(event) => {
+                setSessionDate(event.target.value);
+                setSelectedSessionId("");
+              }}
+            />
+          </label>
+        </header>
+
+        {error && (
+          <p className="notice error-notice" role="alert">
+            {error}
+          </p>
+        )}
+        {success && (
+          <p className="notice success-notice" role="status">
+            {success}
+          </p>
+        )}
+
+        <section className="card accent" aria-labelledby="sessions-heading">
+          <div className="card-heading">
+            <h2 id="sessions-heading">Assigned sessions</h2>
+            {!classesLoading && (
+              <p className="muted">
+                {classes.length} {classes.length === 1 ? "session" : "sessions"}
               </p>
-            </div>
-            <label className="date-field">
-              Session date
-              <input
-                type="date"
-                value={sessionDate}
-                onChange={(event) => {
-                  setSessionDate(event.target.value);
-                  setSelectedSessionId("");
-                }}
-              />
-            </label>
-          </header>
+            )}
+          </div>
 
-          {error && (
-            <div className="notice error-notice" role="alert">
-              {error}
-            </div>
-          )}
-          {success && (
-            <div className="notice success-notice" role="status">
-              {success}
-            </div>
-          )}
-
-          <section className="session-panel" aria-labelledby="sessions-heading">
-            <div className="panel-heading">
-              <div>
-                <p className="eyebrow">Your timetable</p>
-                <h2 id="sessions-heading">Assigned sessions</h2>
-              </div>
-              {!classesLoading && (
-                <span className="session-count">
-                  {classes.length} {classes.length === 1 ? "session" : "sessions"}
-                </span>
-              )}
-            </div>
-
-            {classesLoading ? (
-              <p className="state-message">Loading your sessions…</p>
-            ) : classes.length === 0 ? (
-              <p className="state-message">
-                No sessions are assigned to you for this date.
-              </p>
-            ) : (
-              <div className="session-list">
-                {classes.map((item) => {
-                  const active =
-                    String(item.session_id) === selectedSessionId;
-                  return (
+          {classesLoading ? (
+            <p className="muted">Loading your sessions…</p>
+          ) : classes.length === 0 ? (
+            <p className="muted">
+              No sessions are assigned to you for this date.
+            </p>
+          ) : (
+            <ul className="session-list">
+              {classes.map((item) => {
+                const active = String(item.session_id) === selectedSessionId;
+                return (
+                  <li key={item.session_id}>
                     <button
                       className={`session-option${active ? " selected" : ""}`}
-                      key={item.session_id}
                       type="button"
                       aria-pressed={active}
                       onClick={() =>
                         setSelectedSessionId(String(item.session_id))
                       }
                     >
-                      <span className="period-label">
+                      <small>
                         {item.period_number
                           ? `Period ${item.period_number}`
                           : "Class session"}
-                      </span>
+                      </small>
                       <strong>{formatClassName(item)}</strong>
-                      <span className="session-time">
+                      <small>
                         {formatTime(item.start_time)}–{formatTime(item.end_time)}
                         {item.room ? ` · Room ${item.room}` : ""}
-                      </span>
+                      </small>
                       {item.is_conducted && (
-                        <span className="conducted-label">Attendance saved</span>
+                        <small className="saved-note">Attendance saved</small>
                       )}
                     </button>
-                  );
-                })}
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </section>
+
+        {selectedClass && (
+          <section className="card" aria-labelledby="roster-heading">
+            <div className="card-heading stacked">
+              <div>
+                <h2 id="roster-heading">
+                  Students{roster ? ` (${roster.students.length})` : ""}
+                </h2>
+                <p className="muted">{formatClassName(selectedClass)}</p>
               </div>
+              {roster && (
+                <ul className="status-counts" aria-label="Attendance totals">
+                  {attendanceStatuses.map((status) => (
+                    <li key={status}>
+                      {status.charAt(0) + status.slice(1).toLowerCase()}:{" "}
+                      <strong>{counts[status]}</strong>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
+            {rosterLoading ? (
+              <p className="muted pad">Loading students…</p>
+            ) : !roster ? (
+              <p className="muted pad">The roster could not be displayed.</p>
+            ) : roster.students.length === 0 ? (
+              <p className="muted pad">
+                No students are assigned to this session.
+              </p>
+            ) : (
+              <>
+                <div className="roster-actions">
+                  <p className="muted">
+                    {roster.marked_students} of {roster.total_students} students
+                    already marked
+                  </p>
+                  <button
+                    className="button secondary"
+                    type="button"
+                    onClick={markAllPresent}
+                    disabled={saving}
+                  >
+                    Mark all present
+                  </button>
+                </div>
+
+                <table className="roster-table">
+                  <thead>
+                    <tr>
+                      <th scope="col">Name</th>
+                      <th scope="col">Roll number</th>
+                      <th scope="col">Attendance</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {roster.students.map((student) => {
+                      const status =
+                        statusChanges[student.id] ?? student.status ?? "ABSENT";
+                      return (
+                        <tr key={student.id}>
+                          <td data-label="Name">
+                            {student.name ?? "Unnamed student"}
+                          </td>
+                          <td data-label="Roll number">
+                            {student.roll_number ?? "—"}
+                          </td>
+                          <td data-label="Attendance">
+                            <select
+                              aria-label={`Attendance for ${student.name ?? "student"}`}
+                              value={status}
+                              disabled={saving}
+                              onChange={(event) =>
+                                updateStudentStatus(
+                                  student.id,
+                                  event.target.value as AttendanceStatus
+                                )
+                              }
+                            >
+                              {attendanceStatuses.map((option) => (
+                                <option key={option} value={option}>
+                                  {option.charAt(0) +
+                                    option.slice(1).toLowerCase()}
+                                </option>
+                              ))}
+                            </select>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+
+                <div className="save-row">
+                  <button
+                    className="button primary"
+                    type="button"
+                    disabled={saving || rosterLoading}
+                    onClick={() => void submitAttendance()}
+                  >
+                    {saving ? "Saving attendance…" : "Save attendance"}
+                  </button>
+                </div>
+              </>
             )}
           </section>
-
-          {selectedClass && (
-            <section className="roster-panel" aria-labelledby="roster-heading">
-              <div className="panel-heading roster-heading">
-                <div>
-                  <p className="eyebrow">{formatClassName(selectedClass)}</p>
-                  <h2 id="roster-heading">Student roster</h2>
-                </div>
-                {roster && (
-                  <div className="status-counts" aria-label="Attendance totals">
-                    {attendanceStatuses.map((status) => (
-                      <span className="status-count" key={status}>
-                        {status}: {counts[status]}
-                      </span>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {rosterLoading ? (
-                <p className="state-message">Loading students…</p>
-              ) : !roster ? (
-                <p className="state-message">
-                  The roster could not be displayed.
-                </p>
-              ) : roster.students.length === 0 ? (
-                <p className="state-message">
-                  No students are assigned to this session.
-                </p>
-              ) : (
-                <>
-                  <div className="roster-actions">
-                    <p>
-                      {roster.marked_students} of {roster.total_students}{" "}
-                      students already marked
-                    </p>
-                    <button
-                      className="secondary-button"
-                      type="button"
-                      onClick={markAllPresent}
-                      disabled={saving}
-                    >
-                      Mark all present
-                    </button>
-                  </div>
-
-                  <div className="roster-table-wrap">
-                    <table className="roster-table">
-                      <thead>
-                        <tr>
-                          <th>Student</th>
-                          <th>Roll number</th>
-                          <th>Attendance</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {roster.students.map((student) => {
-                          const status =
-                            statusChanges[student.id] ??
-                            student.status ??
-                            "ABSENT";
-                          return (
-                            <tr key={student.id}>
-                              <td data-label="Student">
-                                {student.name ?? "Unnamed student"}
-                              </td>
-                              <td data-label="Roll number">
-                                {student.roll_number ?? "—"}
-                              </td>
-                              <td data-label="Attendance">
-                                <select
-                                  aria-label={`Attendance for ${student.name ?? "student"}`}
-                                  value={status}
-                                  disabled={saving}
-                                  onChange={(event) =>
-                                    updateStudentStatus(
-                                      student.id,
-                                      event.target.value as AttendanceStatus
-                                    )
-                                  }
-                                >
-                                  {attendanceStatuses.map((option) => (
-                                    <option key={option} value={option}>
-                                      {option}
-                                    </option>
-                                  ))}
-                                </select>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-
-                  <div className="save-row">
-                    <button
-                      className="save-button"
-                      type="button"
-                      disabled={saving || rosterLoading}
-                      onClick={() => void submitAttendance()}
-                    >
-                      {saving ? "Saving attendance…" : "Save attendance"}
-                    </button>
-                  </div>
-                </>
-              )}
-            </section>
-          )}
-        </div>
-      </main>
+        )}
+      </div>
 
       <style jsx>{`
-        .staff-attendance {
+        /* Mobile first: base styles target the smallest screens. */
+        .attendance {
           min-height: 100vh;
-          color: #0f172a;
-          background:
-            radial-gradient(circle at top left, rgba(59, 130, 246, 0.08), transparent 34%),
-            #f8fafc;
+          padding: 16px 12px 40px;
+          color: #111827;
+          background: #f8fafc;
+          line-height: 1.5;
         }
-        .staff-attendance-main {
-          padding: 32px 20px 56px;
-        }
-        .staff-attendance-container {
+        .container {
           width: 100%;
-          max-width: 1120px;
+          max-width: 1200px;
           margin: 0 auto;
         }
         .back-link {
           display: inline-block;
-          margin-bottom: 24px;
-          color: #2563eb;
-          font-weight: 650;
+          margin-bottom: 16px;
+          color: #4f46e5;
+          font-size: 14px;
           text-decoration: none;
         }
         .back-link:hover {
           text-decoration: underline;
         }
-        .page-heading,
-        .panel-heading {
-          display: flex;
-          align-items: flex-end;
-          justify-content: space-between;
-          gap: 20px;
-        }
+
         .page-heading {
-          margin-bottom: 24px;
-        }
-        .eyebrow {
-          margin: 0 0 7px;
-          color: #2563eb;
-          font-size: 12px;
-          font-weight: 750;
-          letter-spacing: 0.1em;
-          text-transform: uppercase;
-        }
-        h1,
-        h2,
-        p {
-          margin-top: 0;
+          display: grid;
+          gap: 14px;
+          margin-bottom: 16px;
         }
         h1 {
-          margin-bottom: 8px;
-          font-size: clamp(28px, 4vw, 38px);
-          letter-spacing: -0.04em;
+          margin: 0 0 4px;
+          font-size: 22px;
+          line-height: 1.25;
         }
-        .page-heading p:not(.eyebrow) {
-          max-width: 660px;
-          margin-bottom: 0;
-          color: #64748b;
-          line-height: 1.6;
+        h2 {
+          margin: 0;
+          font-size: 16px;
         }
-        .date-field {
-          display: grid;
-          flex: 0 0 210px;
-          gap: 7px;
+        .page-heading p {
+          margin: 0;
           color: #475569;
-          font-size: 13px;
-          font-weight: 650;
+          font-size: 14px;
         }
+        .field {
+          display: grid;
+          gap: 6px;
+          color: #374151;
+          font-size: 14px;
+        }
+
         input,
         select {
+          width: 100%;
           min-height: 42px;
-          padding: 9px 12px;
-          color: #0f172a;
+          padding: 8px 12px;
+          color: #111827;
           background: #fff;
-          border: 1px solid #cbd5e1;
-          border-radius: 9px;
+          border: 1px solid #d1d5db;
+          border-radius: 6px;
           font: inherit;
+          font-size: 14px;
         }
-        input:focus,
-        select:focus,
+        input:focus-visible,
+        select:focus-visible,
         button:focus-visible,
         a:focus-visible {
-          outline: 3px solid rgba(37, 99, 235, 0.25);
+          outline: 2px solid #4f46e5;
           outline-offset: 2px;
         }
+
         .notice {
-          margin: 0 0 16px;
-          padding: 12px 15px;
+          margin: 0 0 12px;
+          padding: 10px 12px;
           border: 1px solid;
-          border-radius: 10px;
-          line-height: 1.5;
+          border-radius: 6px;
+          font-size: 14px;
         }
         .error-notice {
           color: #991b1b;
@@ -532,221 +519,273 @@ export default function StaffAttendancePage() {
           background: #f0fdf4;
           border-color: #bbf7d0;
         }
-        .session-panel,
-        .roster-panel {
-          margin-top: 18px;
-          padding: 22px;
+
+        .card {
+          margin-bottom: 12px;
+          padding: 16px 14px;
           background: #fff;
-          border: 1px solid #e2e8f0;
-          border-radius: 16px;
-          box-shadow: 0 8px 24px rgba(15, 23, 42, 0.05);
+          border: 1px solid #e5e7eb;
+          border-radius: 6px;
         }
-        .panel-heading {
-          align-items: center;
-          margin-bottom: 18px;
+        .card.accent {
+          border-left: 3px solid #4f46e5;
         }
-        .panel-heading h2 {
-          margin-bottom: 0;
-          font-size: 21px;
-        }
-        .session-count,
-        .conducted-label {
-          color: #64748b;
-          font-size: 13px;
-        }
-        .session-list {
-          display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-          gap: 12px;
-        }
-        .session-option {
-          display: grid;
-          gap: 7px;
-          min-height: 130px;
-          padding: 16px;
-          color: #0f172a;
-          text-align: left;
-          background: #fff;
-          border: 1px solid #dbe3ee;
-          border-radius: 12px;
-          cursor: pointer;
-        }
-        .session-option:hover {
-          border-color: #93c5fd;
-          background: #f8fbff;
-        }
-        .session-option.selected {
-          border-color: #3b82f6;
-          box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
-        }
-        .period-label {
-          color: #2563eb;
-          font-size: 12px;
-          font-weight: 750;
-          text-transform: uppercase;
-        }
-        .session-option strong {
-          font-size: 15px;
-        }
-        .session-time {
-          color: #64748b;
-          font-size: 13px;
-        }
-        .conducted-label {
-          color: #15803d;
-          font-weight: 650;
-        }
-        .state-message {
-          margin: 0;
-          padding: 18px 0 4px;
-          color: #64748b;
-        }
-        .roster-heading {
-          align-items: flex-end;
-        }
-        .status-counts {
+        .card-heading {
           display: flex;
-          flex-wrap: wrap;
-          justify-content: flex-end;
-          gap: 7px;
-        }
-        .status-count {
-          padding: 6px 9px;
-          color: #475569;
-          background: #f1f5f9;
-          border-radius: 999px;
-          font-size: 12px;
-          font-weight: 650;
-          white-space: nowrap;
-        }
-        .roster-actions {
-          display: flex;
-          align-items: center;
+          align-items: baseline;
           justify-content: space-between;
           gap: 12px;
           margin-bottom: 12px;
         }
-        .roster-actions p {
+        .card-heading.stacked {
+          flex-direction: column;
+          align-items: stretch;
+        }
+        .muted {
           margin: 0;
           color: #64748b;
           font-size: 13px;
         }
-        .secondary-button,
-        .save-button {
-          min-height: 42px;
-          padding: 9px 15px;
-          border-radius: 9px;
+        .pad {
+          padding: 8px 0;
+        }
+
+        .session-list {
+          display: grid;
+          grid-template-columns: 1fr;
+          gap: 8px;
+          margin: 0;
+          padding: 0;
+          list-style: none;
+        }
+        .session-option {
+          display: grid;
+          gap: 2px;
+          width: 100%;
+          height: 100%;
+          padding: 12px;
+          color: #111827;
+          text-align: left;
+          background: #fff;
+          border: 1px solid #e5e7eb;
+          border-radius: 6px;
           font: inherit;
-          font-weight: 700;
           cursor: pointer;
         }
-        .secondary-button {
-          color: #1d4ed8;
-          background: #eff6ff;
-          border: 1px solid #bfdbfe;
+        .session-option:hover {
+          background: #f9fafb;
         }
-        .save-button {
+        .session-option.selected {
+          border-color: #4f46e5;
+          background: #eef2ff;
+        }
+        .session-option strong {
+          font-size: 14px;
+        }
+        .session-option small {
+          color: #64748b;
+          font-size: 12px;
+        }
+        .session-option small.saved-note {
+          color: #15803d;
+        }
+
+        .status-counts {
+          display: grid;
+          grid-template-columns: repeat(2, 1fr);
+          gap: 4px 12px;
+          margin: 0;
+          padding: 0;
+          list-style: none;
+          color: #475569;
+          font-size: 13px;
+        }
+
+        .roster-actions {
+          display: grid;
+          gap: 10px;
+          margin: 4px 0 12px;
+        }
+
+        .button {
+          min-height: 42px;
+          padding: 8px 16px;
+          border-radius: 6px;
+          font: inherit;
+          font-size: 14px;
+          cursor: pointer;
+        }
+        .button.primary {
           color: #fff;
-          background: #2563eb;
-          border: 1px solid #2563eb;
+          background: #4f46e5;
+          border: 1px solid #4f46e5;
         }
-        .save-button:hover:not(:disabled) {
-          background: #1d4ed8;
+        .button.primary:hover:not(:disabled) {
+          background: #4338ca;
         }
-        button:disabled {
+        .button.secondary {
+          color: #111827;
+          background: #fff;
+          border: 1px solid #d1d5db;
+        }
+        .button.secondary:hover:not(:disabled) {
+          background: #f9fafb;
+        }
+        .button:disabled {
           cursor: not-allowed;
           opacity: 0.6;
         }
-        .roster-table-wrap {
-          overflow-x: auto;
-        }
+
+        /* Stacked rows on mobile */
         .roster-table {
           width: 100%;
           border-collapse: collapse;
         }
-        .roster-table th,
-        .roster-table td {
-          padding: 12px 10px;
-          text-align: left;
-          border-bottom: 1px solid #e2e8f0;
+        .roster-table thead {
+          position: absolute;
+          width: 1px;
+          height: 1px;
+          overflow: hidden;
+          clip: rect(0 0 0 0);
+          white-space: nowrap;
         }
-        .roster-table th {
+        .roster-table,
+        .roster-table tbody,
+        .roster-table tr,
+        .roster-table td {
+          display: block;
+          width: 100%;
+        }
+        .roster-table tr {
+          margin-bottom: 8px;
+          padding: 6px 12px;
+          border: 1px solid #e5e7eb;
+          border-radius: 6px;
+        }
+        .roster-table td {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+          padding: 6px 0;
+          font-size: 14px;
+        }
+        .roster-table td::before {
+          content: attr(data-label);
           color: #64748b;
-          font-size: 12px;
-          font-weight: 700;
-          text-transform: uppercase;
+          font-size: 13px;
         }
         .roster-table select {
-          min-width: 145px;
+          width: auto;
+          min-width: 130px;
         }
+
         .save-row {
-          display: flex;
-          justify-content: flex-end;
-          margin-top: 18px;
+          margin-top: 12px;
         }
-        @media (max-width: 700px) {
-          .staff-attendance-main {
-            padding: 22px 14px 36px;
+        .save-row .button {
+          width: 100%;
+        }
+
+        /* Small tablets and up */
+        @media (min-width: 600px) {
+          .attendance {
+            padding: 24px 20px 56px;
           }
-          .page-heading,
-          .panel-heading {
-            align-items: stretch;
-            flex-direction: column;
+          h1 {
+            font-size: 26px;
           }
-          .date-field {
-            flex-basis: auto;
+          h2 {
+            font-size: 17px;
           }
-          .session-panel,
-          .roster-panel {
-            padding: 17px 14px;
+          .page-heading {
+            grid-template-columns: 1fr minmax(180px, 220px);
+            align-items: end;
           }
-          .roster-heading {
-            gap: 12px;
+          .card {
+            padding: 20px;
+          }
+          .session-list {
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            gap: 10px;
           }
           .status-counts {
-            justify-content: flex-start;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px 16px;
+          }
+          .roster-actions {
+            grid-template-columns: 1fr auto;
+            align-items: center;
+          }
+          .save-row {
+            display: flex;
+            justify-content: flex-end;
+          }
+          .save-row .button {
+            width: auto;
+          }
+        }
+
+        /* Desktop: real table */
+        @media (min-width: 768px) {
+          .card-heading.stacked {
+            flex-direction: row;
+            align-items: flex-end;
+          }
+          .roster-table {
+            display: table;
           }
           .roster-table thead {
-            position: absolute;
-            width: 1px;
-            height: 1px;
-            overflow: hidden;
-            clip: rect(0 0 0 0);
-            white-space: nowrap;
+            position: static;
+            width: auto;
+            height: auto;
+            overflow: visible;
+            clip: auto;
+            display: table-header-group;
           }
-          .roster-table,
-          .roster-table tbody,
-          .roster-table tr,
-          .roster-table td {
-            display: block;
-            width: 100%;
+          .roster-table tbody {
+            display: table-row-group;
           }
           .roster-table tr {
-            margin-bottom: 10px;
-            padding: 8px 12px;
-            border: 1px solid #e2e8f0;
-            border-radius: 10px;
-          }
-          .roster-table td {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 12px;
-            padding: 7px 0;
+            display: table-row;
+            margin: 0;
+            padding: 0;
             border: 0;
+            border-radius: 0;
+          }
+          .roster-table th,
+          .roster-table td {
+            display: table-cell;
+            width: auto;
+            padding: 12px 10px;
+            text-align: left;
+            border-bottom: 1px solid #e5e7eb;
+          }
+          .roster-table th {
+            color: #64748b;
+            font-size: 13px;
+            background: #f9fafb;
+            border-top: 1px solid #e5e7eb;
           }
           .roster-table td::before {
-            content: attr(data-label);
-            font-weight: 650;
+            content: none;
           }
           .roster-table select {
-            max-width: 60%;
+            min-width: 150px;
           }
-          .save-row .save-button {
-            width: 100%;
+        }
+
+        /* Large screens */
+        @media (min-width: 1200px) {
+          .attendance {
+            padding: 32px 24px 72px;
+          }
+          h1 {
+            font-size: 28px;
           }
         }
       `}</style>
-    </section>
+    </main>
   );
 }
