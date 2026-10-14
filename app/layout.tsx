@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Charis_SIL, Geist, Geist_Mono } from "next/font/google";
 import Sidebar from "../components/sidebar";
 import SessionGuard from "../components/session-guard";
 import "./globals.css";
@@ -14,6 +14,13 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const charisSil = Charis_SIL({
+  variable: "--font-charis-sil",
+  subsets: ["latin"],
+  weight: ["400", "700"],
+  style: ["normal", "italic"],
+});
+
 export const metadata: Metadata = {
   title: "Student ERP",
   description: "Student and user management frontend",
@@ -23,7 +30,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} ${charisSil.variable} h-full antialiased`}
     >
       <body className="min-h-dvh bg-gray-50 text-gray-900">
         <SessionGuard />

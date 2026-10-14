@@ -63,19 +63,19 @@ function Brand({ size = 40, collapsed = false }: { size?: number; collapsed?: bo
         collapsed ? "lg:gap-0" : ""
       }`}
     >
-      <span
-        className="grid shrink-0 place-items-center rounded-xl bg-white p-1.5 shadow-lg shadow-black/30 transition-transform duration-300 group-hover:-rotate-6 group-hover:scale-105 motion-reduce:transition-none"
-        style={{ width: size, height: size }}
-      >
-        <Image
-          src="/logo.png"
-          alt="Solvane logo"
-          width={size}
-          height={size}
-          priority
-          className="h-full w-full object-contain"
-        />
-      </span>
+    <div
+  className="relative shrink-0"
+  style={{ width: size, height: size }}
+>
+  <Image
+    src="/logo.png"
+    alt="Solvane logo"
+    fill
+    priority
+    sizes={`${size}px`}
+    className="object-contain"
+  />
+</div>
       <span
         className={`flex min-w-0 flex-col gap-1 whitespace-nowrap transition-all duration-300 motion-reduce:transition-none ${
           collapsed ? "lg:w-0 lg:overflow-hidden lg:opacity-0" : ""
@@ -242,10 +242,10 @@ export default function Sidebar() {
         }`}
       >
         {/* Soft brand glow */}
-        <div
+        {/* <div
           aria-hidden="true"
           className="pointer-events-none absolute inset-x-0 top-0 h-48 bg-gradient-to-b from-violet-600/15 via-cyan-500/5 to-transparent"
-        />
+        /> */}
 
         {/* Header: logo only when collapsed */}
         <div className="relative flex h-16 shrink-0 items-center justify-between gap-3 px-4 lg:h-24 lg:px-[18px]">
@@ -283,18 +283,21 @@ export default function Sidebar() {
           className="relative flex-1 space-y-1 overflow-y-auto overflow-x-hidden overscroll-contain px-3 pb-4 pt-2 [scrollbar-color:#334155_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-700 [&::-webkit-scrollbar-track]:bg-transparent"
         >
           {/* Section label (expanded) / divider (collapsed) */}
-          <div
-            className={`flex items-center justify-between px-3 pb-2 ${
-              collapsed ? "lg:hidden" : ""
-            }`}
-          >
-            <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-500">
-              {user.role_id === 1 ? "Workspace" : "Your workspace"}
-            </p>
-            <span className="rounded-full bg-violet-500/15 px-2 py-0.5 text-[10px] font-semibold text-violet-300 ring-1 ring-inset ring-violet-400/20">
-              {roleLabels[user.role_id] ?? "Account"}
-            </span>
-          </div>
+
+<div
+  className={`flex items-center justify-between px-3 pb-2 ${
+    collapsed ? "lg:hidden" : ""
+  }`}
+>
+  <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-500">
+    {user.role_id === 1 ? "Workspace" : "Your workspace"}
+  </p>
+
+<p className="text-[10px] font-semibold text-white/60 [text-shadow:none] [filter:none]">
+  {roleLabels[user.role_id] ?? "Account"}
+</p>
+</div>
+
           {collapsed && <div aria-hidden="true" className="mx-3 mb-3 hidden h-px bg-white/10 lg:block" />}
 
           {links.map((item, index) => {

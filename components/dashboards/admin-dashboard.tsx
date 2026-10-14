@@ -7,7 +7,7 @@ export default function AdminDashboard({
   user: CurrentUser;
 }) {
   return (
-    <section className="page-section dashboard-page">
+    <section className="page-section dashboard-page admin-dashboard">
       <p className="eyebrow">Administrator workspace</p>
 
       <h1>Welcome back, {user.username}.</h1>

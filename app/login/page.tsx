@@ -136,13 +136,7 @@ export default function LoginPage() {
       <div className="relative hidden bg-slate-900 lg:block lg:min-h-dvh">
         <ImageSlider images={slides} interval={5500} />
 
-        <Link
-          href="/"
-          aria-label="Go back"
-          className="absolute left-6 top-6 z-20 grid h-10 w-10 place-items-center rounded-full bg-slate-900/70 text-white backdrop-blur transition hover:bg-slate-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
-        >
-          <ArrowLeft size={18} />
-        </Link>
+
       </div>
 
       {/* Right: form panel */}
@@ -187,15 +181,6 @@ export default function LoginPage() {
             Welcome Back
           </motion.h1>
 
-          <motion.p variants={itemVariants} className="mt-2 text-sm text-slate-600">
-            Don&apos;t have an account?{" "}
-            <Link
-              href="/register"
-              className="font-semibold text-blue-600 hover:text-blue-700 hover:underline"
-            >
-              Sign up
-            </Link>
-          </motion.p>
 
           <motion.form
             variants={itemVariants}
@@ -254,7 +239,7 @@ export default function LoginPage() {
 
             {/* Remember me / Forgot password */}
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <label
+              {/* <label
                 htmlFor="remember"
                 className="flex cursor-pointer items-center gap-2 text-sm text-slate-600"
               >
@@ -265,7 +250,7 @@ export default function LoginPage() {
                   className="h-4 w-4 cursor-pointer rounded border-slate-400 accent-slate-900"
                 />
                 Remember me
-              </label>
+              </label> */}
               <Link
                 href="/forgot-password"
                 className="text-sm font-semibold text-blue-600 hover:text-blue-700 hover:underline"
@@ -303,16 +288,6 @@ export default function LoginPage() {
             </button>
           </motion.form>
 
-          {/* Divider */}
-          <motion.div
-            variants={itemVariants}
-            className="my-8 flex items-center gap-3"
-            role="separator"
-          >
-            <span className="h-px flex-1 bg-slate-300" />
-            <span className="text-sm text-slate-500">or</span>
-            <span className="h-px flex-1 bg-slate-300" />
-          </motion.div>
 
 
         </motion.div>
