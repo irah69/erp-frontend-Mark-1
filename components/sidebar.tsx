@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { checkSession, logout, type CurrentUser } from "../lib/auth";
+import { getMyUserProfile, getUserProfileImage } from "../lib/api";
 
 type NavigationItem = {
   href: string;
@@ -41,6 +42,7 @@ const navigationItems: NavigationItem[] = [
   { href: "/attendance", label: "Attendance", icon: ClipboardCheck, roles: [1] },
   { href: "/users", label: "Users", icon: UsersRound, roles: [1] },
   { href: "/schedule", label: "My schedule", icon: CalendarDays, roles: [2, 3] },
+  { href: "/my-class", label: "My class", icon: PanelsTopLeft, roles: [2] },
   { href: "/staff-attendance", label: "Attendance", icon: ClipboardCheck, roles: [2] },
   { href: "/profile", label: "My profile", icon: UserRound, roles: [1, 2, 3, 4] },
 ];
@@ -96,6 +98,10 @@ export default function Sidebar() {
   const router = useRouter();
   const pathname = usePathname();
   const [user, setUser] = useState<CurrentUser | null>(null);
+  const [profileAvatar, setProfileAvatar] = useState<{
+    userId: number;
+    url: string;
+  } | null>(null);
   const [mobilePath, setMobilePath] = useState<string | null>(null);
   const [pinned, setPinned] = useState(false); // desktop: keep expanded + push content
   const [peek, setPeek] = useState(false); // desktop: hover/focus expands as overlay
@@ -106,6 +112,7 @@ export default function Sidebar() {
   const collapsed = !expanded;
 
   const hidden = pathname === "/login" || pathname?.startsWith("/login/");
+  const currentUserId = user?.id ?? null;
 
   useEffect(() => {
     try {
@@ -133,6 +140,41 @@ export default function Sidebar() {
       cancelled = true;
     };
   }, [hidden, pathname]);
+
+  useEffect(() => {
+    let cancelled = false;
+    let objectUrl: string | null = null;
+
+    if (currentUserId === null) {
+      return () => {
+        cancelled = true;
+      };
+    }
+    const activeUserId = currentUserId;
+
+    async function loadProfileAvatar() {
+      try {
+        const profile = await getMyUserProfile();
+        if (cancelled || profile.image_id === null) return;
+
+        const image = await getUserProfileImage(profile.image_id);
+        objectUrl = URL.createObjectURL(image);
+        if (cancelled) {
+          URL.revokeObjectURL(objectUrl);
+        } else {
+          setProfileAvatar({ userId: activeUserId, url: objectUrl });
+        }
+      } catch (avatarError) {
+        console.error("Unable to load the sidebar profile image.", avatarError);
+      }
+    }
+
+    void loadProfileAvatar();
+    return () => {
+      cancelled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [currentUserId]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -176,6 +218,8 @@ export default function Sidebar() {
   const isActive = (href: string) => pathname === href || pathname?.startsWith(`${href}/`);
   const displayName = user.username || user.email;
   const initials = displayName.slice(0, 1).toUpperCase();
+  const avatarUrl =
+    profileAvatar?.userId === user.id ? profileAvatar.url : null;
   const toggleMobile = () => setMobilePath((cur) => (cur === pathname ? null : pathname));
 
   // Classes that only apply on lg+ when the rail is collapsed
@@ -359,13 +403,26 @@ export default function Sidebar() {
               collapsed ? "lg:gap-0" : ""
             }`}
           >
-            <span
-              aria-hidden="true"
-              title={displayName}
-              className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-violet-500 to-cyan-500 text-sm font-bold text-white shadow-md shadow-violet-500/30"
-            >
-              {initials}
-            </span>
+            {avatarUrl ? (
+              <Image
+                src={avatarUrl}
+                alt=""
+                aria-hidden="true"
+                title={displayName}
+                width={40}
+                height={40}
+                unoptimized
+                className="size-10 shrink-0 rounded-xl object-cover shadow-md"
+              />
+            ) : (
+              <span
+                aria-hidden="true"
+                title={displayName}
+                className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-violet-500 to-cyan-500 text-sm font-bold text-white shadow-md shadow-violet-500/30"
+              >
+                {initials}
+              </span>
+            )}
             <span
               className={`flex min-w-0 flex-1 flex-col whitespace-nowrap transition-all duration-300 ${
                 collapsed ? "lg:flex-none lg:w-0 lg:overflow-hidden lg:opacity-0" : ""

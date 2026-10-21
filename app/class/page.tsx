@@ -1,8 +1,9 @@
 "use client";
 
-import { FormEvent, ReactNode, useEffect, useId, useState } from "react";
+import { FormEvent, ReactNode, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { AlertCircle, Pencil, Search, X } from "lucide-react";
-import { apiRequest } from "../../lib/api";
+import { apiRequest, getClassStudents, type ClassRosterStudent } from "../../lib/api";
 
 type Grade = {
   id: number;
@@ -25,38 +26,7 @@ type Staff = {
   status: string;
 };
 
-type Student = {
-  id: number;
-  name: string;
-  roll_number: string;
-  admission_date: string;
-  parent_name?: string | null;
-  mobile_number?: string | null;
-  grade?: string | null;
-  section?: string | null;
-  status: string;
-  created_at: string;
-};
-
-type StudentForm = {
-  name: string;
-  roll_number: string;
-  admission_date: string;
-  parent_name: string;
-  mobile_number: string;
-  grade: string;
-  section: string;
-};
-
-const emptyStudentForm: StudentForm = {
-  name: "",
-  roll_number: "",
-  admission_date: "",
-  parent_name: "",
-  mobile_number: "",
-  grade: "",
-  section: "",
-};
+type Student = ClassRosterStudent;
 
 type ClassResult = {
   grade: string;
@@ -72,7 +42,6 @@ const focusRing =
 
 const buttonBase = `inline-flex items-center justify-center gap-2 rounded-md border px-3 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${focusRing}`;
 const buttonPrimary = `${buttonBase} border-indigo-600 bg-indigo-600 text-white hover:bg-indigo-700 active:bg-indigo-800`;
-const buttonSecondary = `${buttonBase} border-slate-300 bg-white text-slate-700 hover:bg-slate-50 active:bg-slate-100`;
 
 const rowButton = `inline-flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50 ${focusRing}`;
 
@@ -107,80 +76,18 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
-function Dialog({
-  open,
-  onClose,
-  title,
-  children,
-  width = "sm:max-w-2xl",
-}: {
-  open: boolean;
-  onClose: () => void;
-  title: string;
-  children: ReactNode;
-  width?: string;
-}) {
-  const titleId = useId();
-
-  useEffect(() => {
-    if (!open) return;
-    const previous = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    const onKey = (event: KeyboardEvent) => event.key === "Escape" && onClose();
-    window.addEventListener("keydown", onKey);
-    return () => {
-      document.body.style.overflow = previous;
-      window.removeEventListener("keydown", onKey);
-    };
-  }, [open, onClose]);
-
-  if (!open) return null;
-
-  return (
-    <div
-      className="fixed inset-0 z-[60] flex items-end justify-center bg-slate-900/50 sm:items-center sm:p-4"
-      onMouseDown={(event) => event.target === event.currentTarget && onClose()}
-    >
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-        className={`max-h-[92dvh] w-full overflow-y-auto overscroll-contain rounded-t-lg border border-slate-200 bg-white p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:rounded-lg sm:pb-5 ${width}`}
-      >
-        <div className="mb-4 flex items-start justify-between gap-4">
-          <h2 id={titleId} className="min-w-0 truncate text-lg font-semibold text-slate-900">
-            {title}
-          </h2>
-          <button
-            type="button"
-            aria-label="Close"
-            onClick={onClose}
-            className={`-mr-1.5 -mt-1 rounded-md p-1.5 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 ${focusRing}`}
-          >
-            <X size={18} />
-          </button>
-        </div>
-        {children}
-      </div>
-    </div>
-  );
-}
-
 /* ---------- page ---------- */
 
 export default function ClassPage() {
+  const router = useRouter();
   const [grades, setGrades] = useState<Grade[]>([]);
   const [sections, setSections] = useState<Section[]>([]);
   const [staffMembers, setStaffMembers] = useState<Staff[]>([]);
-  const [students, setStudents] = useState<Student[]>([]);
   const [selectedGrade, setSelectedGrade] = useState("");
   const [loading, setLoading] = useState(true);
   const [loadingClass, setLoadingClass] = useState(false);
   const [error, setError] = useState("");
   const [studentSearch, setStudentSearch] = useState("");
-  const [studentForm, setStudentForm] = useState<StudentForm>(emptyStudentForm);
-  const [editingStudentId, setEditingStudentId] = useState<number | null>(null);
-  const [studentFormOpen, setStudentFormOpen] = useState(false);
   const [bulkTargetGrade, setBulkTargetGrade] = useState("");
   const [bulkStatus, setBulkStatus] = useState("active");
   const [bulkSaving, setBulkSaving] = useState(false);
@@ -190,17 +97,21 @@ export default function ClassPage() {
     setLoading(true);
 
     try {
-      const [gradeData, sectionData, staffData, studentData] = await Promise.all([
+      const [gradeData, sectionData, staffData] = await Promise.all([
         apiRequest<Grade[]>("/api/grades"),
         apiRequest<Section[]>("/api/sections"),
         apiRequest<Staff[]>("/api/staff"),
-        apiRequest<{ students: Student[] }>("/api/students"),
       ]);
 
-      setGrades(gradeData);
+      setGrades(
+        gradeData.filter(
+          (grade) =>
+            grade.status.toLowerCase() === "active" &&
+            grade.section_id !== null
+        )
+      );
       setSections(sectionData);
       setStaffMembers(staffData);
-      setStudents(studentData.students ?? []);
       setError("");
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : "Unable to load academic and class data.");
@@ -217,34 +128,35 @@ export default function ClassPage() {
     return () => window.clearTimeout(timer);
   }, []);
 
-  function buildClassResultForGrade(gradeId: string): ClassResult | null {
+  async function loadClassResult(gradeId: string): Promise<ClassResult> {
     const matchingGrade = grades.find((grade) => String(grade.id) === gradeId);
 
-    if (!matchingGrade) {
-      return null;
+    if (!matchingGrade || matchingGrade.section_id === null) {
+      throw new Error("Selected grade or section was not found.");
     }
 
     const gradeSection =
-      matchingGrade.section_id !== null
-        ? sections.find((section) => section.id === matchingGrade.section_id) ?? null
-        : null;
+      sections.find((section) => section.id === matchingGrade.section_id) ?? null;
+    if (!gradeSection) {
+      throw new Error("The selected grade has no valid section.");
+    }
 
     const assignedStaff =
       matchingGrade.staff_id !== null
         ? staffMembers.find((staff) => staff.id === matchingGrade.staff_id) ?? null
         : null;
 
-    const classStudents = students.filter(
-      (student) =>
-        (student.grade ?? "").toLowerCase() === matchingGrade.grade.toLowerCase() &&
-        (student.section ?? "").toLowerCase() === (gradeSection?.section ?? "").toLowerCase()
-    );
+    const roster = await getClassStudents({
+      grade: matchingGrade.grade,
+      section: gradeSection.section,
+      academic_year: matchingGrade.academic_year,
+    });
 
     return {
-      grade: matchingGrade.grade,
-      section: gradeSection?.section ?? "",
+      grade: roster.grade,
+      section: roster.section,
       staff: assignedStaff,
-      students: classStudents,
+      students: roster.students,
     };
   }
 
@@ -258,84 +170,22 @@ export default function ClassPage() {
     }
 
     setLoadingClass(true);
-
-    try {
-      const nextResult = buildClassResultForGrade(selectedGrade);
-
-      if (!nextResult) {
-        setError("Selected grade was not found.");
-        return;
-      }
-
-      setResult(nextResult);
-    } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : "Unable to load class details.");
-    } finally {
-      setLoadingClass(false);
-    }
+    void loadClassResult(selectedGrade)
+      .then((nextResult) => setResult(nextResult))
+      .catch((requestError: unknown) => {
+        setResult(null);
+        setError(
+          requestError instanceof Error
+            ? requestError.message
+            : "Unable to load class details."
+        );
+      })
+      .finally(() => setLoadingClass(false));
   }
 
   const selectedGradeLabel = grades.find((grade) => String(grade.id) === selectedGrade)
     ? `${grades.find((grade) => String(grade.id) === selectedGrade)?.academic_year ?? ""} - ${grades.find((grade) => String(grade.id) === selectedGrade)?.grade ?? ""} - ${sections.find((section) => section.id === (grades.find((grade) => String(grade.id) === selectedGrade)?.section_id ?? -1))?.section ?? ""}`
     : selectedGrade;
-
-  function openEditStudent(student: Student) {
-    setEditingStudentId(student.id);
-    setStudentForm({
-      name: student.name,
-      roll_number: student.roll_number,
-      admission_date: student.admission_date ?? "",
-      parent_name: student.parent_name ?? "",
-      mobile_number: student.mobile_number ?? "",
-      grade: student.grade ?? "",
-      section: student.section ?? "",
-    });
-    setStudentFormOpen(true);
-    setError("");
-  }
-
-  function closeStudentForm() {
-    setEditingStudentId(null);
-    setStudentFormOpen(false);
-    setStudentForm(emptyStudentForm);
-  }
-
-  async function saveStudent(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setLoadingClass(true);
-    setError("");
-
-    const payload = {
-      name: studentForm.name,
-      roll_number: studentForm.roll_number,
-      admission_date: studentForm.admission_date,
-      parent_name: studentForm.parent_name || undefined,
-      mobile_number: studentForm.mobile_number || undefined,
-      grade: studentForm.grade || undefined,
-      section: studentForm.section || undefined,
-    };
-
-    try {
-      if (editingStudentId === null) {
-        return;
-      }
-
-      await apiRequest(`/api/students/${editingStudentId}`, {
-        method: "PUT",
-        body: JSON.stringify(payload),
-      });
-
-      closeStudentForm();
-      await loadData();
-      if (result) {
-        setStudentSearch("");
-      }
-    } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : "Unable to update student.");
-    } finally {
-      setLoadingClass(false);
-    }
-  }
 
   async function applyBulkStudentUpdate() {
     if (!result || result.students.length === 0) {
@@ -359,7 +209,7 @@ export default function ClassPage() {
             body: JSON.stringify({
               name: student.name,
               roll_number: student.roll_number,
-              admission_date: student.admission_date,
+              admission_date: student.admission_date ?? "",
               parent_name: student.parent_name ?? "",
               mobile_number: student.mobile_number ?? "",
               grade: bulkTargetGrade,
@@ -370,8 +220,7 @@ export default function ClassPage() {
         )
       );
 
-      await loadData();
-      const refreshedResult = buildClassResultForGrade(selectedGrade);
+      const refreshedResult = await loadClassResult(selectedGrade);
       setResult(refreshedResult);
       setBulkTargetGrade(result.grade);
       setBulkStatus("active");
@@ -388,6 +237,14 @@ export default function ClassPage() {
         `${student.name} ${student.roll_number}`.toLowerCase().includes(studentSearch.toLowerCase())
       )
     : [];
+
+  function openStudentProfile(student: Student) {
+    if (student.user_id === null) {
+      setError(`No student account is linked to ${student.name}; their profile cannot be opened.`);
+      return;
+    }
+    router.push(`/users/${student.user_id}/profile`);
+  }
 
   return (
     <section className="min-h-dvh bg-slate-50 font-[family-name:var(--font-charis-sil)] text-slate-900">
@@ -577,8 +434,13 @@ export default function ClassPage() {
                         {student.grade ?? "—"} · {student.section ?? "—"}
                       </p>
                       <div className="mt-3">
-                        <button type="button" className={rowButton} onClick={() => openEditStudent(student)}>
-                          <Pencil size={13} aria-hidden="true" /> Edit
+                        <button
+                          type="button"
+                          disabled={student.user_id === null}
+                          className={rowButton}
+                          onClick={() => openStudentProfile(student)}
+                        >
+                          <Pencil size={13} aria-hidden="true" /> Edit profile
                         </button>
                       </div>
                     </li>
@@ -609,8 +471,13 @@ export default function ClassPage() {
                             <StatusBadge status={student.status} />
                           </td>
                           <td className="px-4 py-3">
-                            <button type="button" className={rowButton} onClick={() => openEditStudent(student)}>
-                              Edit
+                            <button
+                              type="button"
+                              disabled={student.user_id === null}
+                              className={rowButton}
+                              onClick={() => openStudentProfile(student)}
+                            >
+                              Edit profile
                             </button>
                           </td>
                         </tr>
@@ -624,77 +491,6 @@ export default function ClassPage() {
         </div>
       </div>
 
-      {/* Edit student */}
-      <Dialog open={studentFormOpen} onClose={closeStudentForm} title="Edit student">
-        <form onSubmit={saveStudent}>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <Field label="Name">
-              <input
-                required
-                className={inputClass}
-                value={studentForm.name}
-                onChange={(event) => setStudentForm({ ...studentForm, name: event.target.value })}
-              />
-            </Field>
-            <Field label="Roll number">
-              <input
-                required
-                className={inputClass}
-                value={studentForm.roll_number}
-                onChange={(event) => setStudentForm({ ...studentForm, roll_number: event.target.value })}
-              />
-            </Field>
-            <Field label="Admission date">
-              <input
-                required
-                type="date"
-                className={inputClass}
-                value={studentForm.admission_date}
-                onChange={(event) => setStudentForm({ ...studentForm, admission_date: event.target.value })}
-              />
-            </Field>
-            <Field label="Grade">
-              <input
-                className={inputClass}
-                value={studentForm.grade}
-                onChange={(event) => setStudentForm({ ...studentForm, grade: event.target.value })}
-              />
-            </Field>
-            <Field label="Section">
-              <input
-                className={inputClass}
-                value={studentForm.section}
-                onChange={(event) => setStudentForm({ ...studentForm, section: event.target.value })}
-              />
-            </Field>
-            <Field label="Parent name">
-              <input
-                className={inputClass}
-                value={studentForm.parent_name}
-                onChange={(event) => setStudentForm({ ...studentForm, parent_name: event.target.value })}
-              />
-            </Field>
-            <Field label="Mobile number">
-              <input
-                type="tel"
-                inputMode="tel"
-                className={inputClass}
-                value={studentForm.mobile_number}
-                onChange={(event) => setStudentForm({ ...studentForm, mobile_number: event.target.value })}
-              />
-            </Field>
-          </div>
-
-          <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-            <button type="button" onClick={closeStudentForm} className={`${buttonSecondary} w-full sm:w-auto`}>
-              Cancel
-            </button>
-            <button type="submit" disabled={loadingClass} className={`${buttonPrimary} w-full sm:w-auto`}>
-              {loadingClass ? "Saving..." : "Save changes"}
-            </button>
-          </div>
-        </form>
-      </Dialog>
     </section>
   );
 }

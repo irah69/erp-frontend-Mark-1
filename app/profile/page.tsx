@@ -5,6 +5,7 @@ import ProfileEditor from "../../components/profile/profile-editor";
 import {
   getCurrentUser,
   getMyUserProfile,
+  uploadUserProfileImage,
   updateMyUserProfile,
   type CurrentUserResponse,
   type UserProfile,
@@ -76,7 +77,12 @@ export default function ProfilePage() {
       initialProfile={profile}
       title="My profile"
       subtitle={`${roleNames[user.role_id] ?? "Account"} · ${user.username} · ${user.email}`}
+      canUploadImage={user.role_id === 1 || user.role_id === 2}
       onSave={updateMyUserProfile}
+      onUploadImage={async (file) => {
+        await uploadUserProfileImage(profile.user_id, file);
+        return getMyUserProfile();
+      }}
     />
   );
 }

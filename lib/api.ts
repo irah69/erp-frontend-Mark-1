@@ -1,6 +1,6 @@
 export const API_BASE_URL =
   process.env.NEXT_PUBLIC_BACKEND_API_URL ??
-  "https://erp-backend-1-y2er.onrender.com";
+  "http://127.0.0.1:8000";
 
 export type ApiRequestError = Error & {
   status?: number;
@@ -58,6 +58,23 @@ export async function apiRequest<T>(
   options: RequestInit = {},
   hasRetried = false
 ): Promise<T> {
+  return apiRequestWithResponse<T>(path, options, "json", hasRetried);
+}
+
+export function apiRequestBlob(
+  path: string,
+  options: RequestInit = {},
+  hasRetried = false
+): Promise<Blob> {
+  return apiRequestWithResponse<Blob>(path, options, "blob", hasRetried);
+}
+
+async function apiRequestWithResponse<T>(
+  path: string,
+  options: RequestInit,
+  responseType: "json" | "blob",
+  hasRetried: boolean
+): Promise<T> {
   const token = getAccessToken();
 
   const headers = new Headers(
@@ -66,10 +83,15 @@ export async function apiRequest<T>(
 
   headers.set(
     "Accept",
-    "application/json"
+    responseType === "blob" ? "image/*" : "application/json"
   );
 
-  if (options.body) {
+  if (
+    typeof FormData !== "undefined" &&
+    options.body instanceof FormData
+  ) {
+    headers.delete("Content-Type");
+  } else if (options.body) {
     headers.set(
       "Content-Type",
       "application/json"
@@ -92,11 +114,6 @@ export async function apiRequest<T>(
     }
   );
 
-  const data =
-    await response
-      .json()
-      .catch(() => ({}));
-
   /* =======================================================
      ACCESS TOKEN REFRESH
      ======================================================= */
@@ -111,9 +128,10 @@ export async function apiRequest<T>(
       await refreshAccessToken();
 
     if (refreshed) {
-      return apiRequest<T>(
+      return apiRequestWithResponse<T>(
         path,
         options,
+        responseType,
         true
       );
     }
@@ -126,6 +144,7 @@ export async function apiRequest<T>(
      ======================================================= */
 
   if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
     let message =
       "Request failed";
 
@@ -160,7 +179,9 @@ export async function apiRequest<T>(
     throw error;
   }
 
-  return data as T;
+  return (responseType === "blob"
+    ? await response.blob()
+    : await response.json().catch(() => ({}))) as T;
 }
 
 /* =========================================================
@@ -226,6 +247,7 @@ export type UserProfileFields = {
 
 export type UserProfile = UserProfileFields & {
   user_id: number;
+  image_id: number | null;
   updated_at: string | null;
 };
 
@@ -259,6 +281,64 @@ export function updateUserProfile(userId: number, update: UserProfileUpdate) {
     method: "PATCH",
     body: JSON.stringify(update),
   });
+}
+
+export function getUserProfileImage(imageId: number) {
+  return apiRequestBlob(`/api/user-images/${imageId}`, {
+    headers: {
+      Accept: "image/*",
+    },
+    cache: "no-store",
+  });
+}
+
+export function uploadUserProfileImage(userId: number, file: File) {
+  const body = new FormData();
+  body.append("file", file);
+
+  return apiRequest<unknown>(`/api/user-images/users/${userId}`, {
+    method: "PUT",
+    body,
+  });
+}
+
+export type ClassRosterStudent = {
+  id: number;
+  user_id: number | null;
+  name: string;
+  roll_number: string;
+  admission_date: string | null;
+  parent_name: string | null;
+  mobile_number: string | null;
+  grade: string | null;
+  section: string | null;
+  status: string;
+  created_at: string | null;
+};
+
+export type ClassRoster = {
+  academic_year: string;
+  grade: string;
+  section: string;
+  count: number;
+  students: ClassRosterStudent[];
+};
+
+export function getClassStudents(args: {
+  grade: string;
+  section: string;
+  academic_year: string;
+}) {
+  const query = new URLSearchParams({
+    grade: args.grade,
+    section: args.section,
+    academic_year: args.academic_year,
+  });
+
+  return apiRequest<ClassRoster>(
+    `/api/classes/students?${query.toString()}`,
+    { cache: "no-store" }
+  );
 }
 
 /* =========================================================

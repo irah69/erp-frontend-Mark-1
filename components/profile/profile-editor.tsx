@@ -1,7 +1,14 @@
 "use client";
 
-import { FormEvent, useState } from "react";
-import type { UserProfile, UserProfileFields, UserProfileUpdate } from "../../lib/api";
+import Image from "next/image";
+import { FormEvent, useEffect, useRef, useState } from "react";
+import { ImagePlus, Upload } from "lucide-react";
+import {
+  getUserProfileImage,
+  type UserProfile,
+  type UserProfileFields,
+  type UserProfileUpdate,
+} from "../../lib/api";
 
 type TextField = Exclude<keyof UserProfileFields, "same_as_present_address" | "aadhaar_number">;
 type EditableTextField = TextField;
@@ -13,7 +20,9 @@ type ProfileEditorProps = {
   initialProfile: UserProfile;
   title?: string;
   subtitle?: string;
+  canUploadImage: boolean;
   onSave: (update: UserProfileUpdate) => Promise<UserProfile>;
+  onUploadImage: (file: File) => Promise<UserProfile>;
 };
 
 const sections: { title: string; fields: { key: TextField; label: string; type?: string }[] }[] = [
@@ -107,7 +116,9 @@ export default function ProfileEditor({
   initialProfile,
   title = "My profile",
   subtitle,
+  canUploadImage,
   onSave,
+  onUploadImage,
 }: ProfileEditorProps) {
   const [profile, setProfile] = useState(initialProfile);
   const [form, setForm] = useState(() => toFormValues(initialProfile));
@@ -115,6 +126,56 @@ export default function ProfileEditor({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [loadedProfileImage, setLoadedProfileImage] = useState<{
+    imageId: number;
+    url: string;
+  } | null>(null);
+  const [imageLoadError, setImageLoadError] = useState<{
+    imageId: number;
+    message: string;
+  } | null>(null);
+  const [imageError, setImageError] = useState("");
+  const [selectedImage, setSelectedImage] = useState<File | null>(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const imageInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    let objectUrl: string | null = null;
+    const imageId = profile.image_id;
+
+    if (imageId === null) {
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    void getUserProfileImage(imageId)
+      .then((image) => {
+        objectUrl = URL.createObjectURL(image);
+        if (cancelled) {
+          URL.revokeObjectURL(objectUrl);
+        } else {
+          setLoadedProfileImage({ imageId, url: objectUrl });
+        }
+      })
+      .catch((loadError: unknown) => {
+        if (!cancelled) {
+          setImageLoadError({
+            imageId,
+            message:
+              loadError instanceof Error
+                ? loadError.message
+                : "Unable to load the profile image.",
+          });
+        }
+      });
+
+    return () => {
+      cancelled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [profile.image_id]);
 
   function beginEditing() {
     setForm(toFormValues(profile));
@@ -182,7 +243,74 @@ export default function ProfileEditor({
     }
   }
 
+  function selectProfileImage(file: File | null) {
+    if (!file) {
+      setSelectedImage(null);
+      setImageError("");
+      return;
+    }
+
+    const allowedTypes = ["image/jpeg", "image/png", "image/gif", "image/webp"];
+    if (!allowedTypes.includes(file.type)) {
+      setSelectedImage(null);
+      setImageError("Choose a JPEG, PNG, GIF, or WebP image.");
+      if (imageInputRef.current) imageInputRef.current.value = "";
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setSelectedImage(null);
+      setImageError("The image must be 5 MB or smaller.");
+      if (imageInputRef.current) imageInputRef.current.value = "";
+      return;
+    }
+
+    setSelectedImage(file);
+    setImageError("");
+  }
+
+  async function uploadImage() {
+    if (!selectedImage) return;
+
+    const allowedTypes = ["image/jpeg", "image/png", "image/gif", "image/webp"];
+    if (!allowedTypes.includes(selectedImage.type)) {
+      setImageError("Choose a JPEG, PNG, GIF, or WebP image.");
+      return;
+    }
+    if (selectedImage.size > 5 * 1024 * 1024) {
+      setImageError("The image must be 5 MB or smaller.");
+      return;
+    }
+
+    setUploadingImage(true);
+    setImageError("");
+    setNotice("");
+    try {
+      const updatedProfile = await onUploadImage(selectedImage);
+      setProfile(updatedProfile);
+      setForm(toFormValues(updatedProfile));
+      setSelectedImage(null);
+      if (imageInputRef.current) imageInputRef.current.value = "";
+      setNotice("Your profile image has been updated.");
+    } catch (uploadError) {
+      setImageError(
+        uploadError instanceof Error
+          ? uploadError.message
+          : "Unable to upload the profile image."
+      );
+    } finally {
+      setUploadingImage(false);
+    }
+  }
+
   const displayName = profile.full_name?.trim() || title;
+  const profileImageUrl =
+    loadedProfileImage?.imageId === profile.image_id
+      ? loadedProfileImage.url
+      : null;
+  const displayedImageError =
+    imageLoadError?.imageId === profile.image_id
+      ? imageLoadError.message
+      : imageError;
 
   return (
     <main className="min-h-dvh bg-slate-50 px-4 py-7 text-slate-900 sm:px-6 sm:py-10">
@@ -204,16 +332,86 @@ export default function ProfileEditor({
           )}
         </header>
 
-        <section className="mb-5 flex items-center gap-4 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="grid size-14 shrink-0 place-items-center rounded-full bg-indigo-100 text-xl font-bold text-indigo-700">
-            {displayName.slice(0, 1).toUpperCase()}
+        <section className="mb-5 flex flex-col gap-4 rounded-xl border border-slate-200 bg-white p-5 shadow-sm sm:flex-row sm:items-center">
+          <div className="flex min-w-0 items-center gap-4">
+            <div className="grid size-14 shrink-0 place-items-center overflow-hidden rounded-full bg-indigo-100 text-xl font-bold text-indigo-700">
+              {profileImageUrl ? (
+                <Image
+                  src={profileImageUrl}
+                  alt={`${displayName} profile`}
+                  width={56}
+                  height={56}
+                  unoptimized
+                  className="size-14 object-cover"
+                />
+              ) : (
+                displayName.slice(0, 1).toUpperCase()
+              )}
+            </div>
+            <div className="min-w-0">
+              <h2 className="truncate text-lg font-semibold">{displayName}</h2>
+              <p className="text-sm text-slate-500">User ID: {profile.user_id}</p>
+            </div>
           </div>
-          <div className="min-w-0">
-            <h2 className="truncate text-lg font-semibold">{displayName}</h2>
-            <p className="text-sm text-slate-500">User ID: {profile.user_id}</p>
-          </div>
+          {editing && canUploadImage && (
+            <div className="flex w-full flex-col gap-2 sm:ml-auto sm:max-w-sm">
+              <label className="text-sm font-semibold text-slate-700" htmlFor="profile-image-file">
+                Profile image
+              </label>
+              <input
+                ref={imageInputRef}
+                id="profile-image-file"
+                type="file"
+                accept="image/jpeg,image/png,image/gif,image/webp"
+                disabled={uploadingImage}
+                onChange={(event) =>
+                  selectProfileImage(event.target.files?.[0] ?? null)
+                }
+                className="peer sr-only"
+              />
+              <label
+                htmlFor="profile-image-file"
+                className={`flex cursor-pointer items-center gap-3 rounded-lg border border-dashed border-slate-300 bg-slate-50 px-3 py-3 transition hover:border-indigo-400 hover:bg-indigo-50 peer-focus-visible:outline-none peer-focus-visible:ring-2 peer-focus-visible:ring-indigo-600 peer-focus-visible:ring-offset-2 peer-disabled:cursor-not-allowed peer-disabled:opacity-60 ${focusRing}`}
+              >
+                <span className="grid size-10 shrink-0 place-items-center rounded-md bg-white text-indigo-600 shadow-sm ring-1 ring-slate-200">
+                  <ImagePlus size={19} aria-hidden="true" />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-semibold text-slate-800">
+                    {selectedImage ? "Change photo" : "Choose a photo"}
+                  </span>
+                  <span className="block truncate text-xs text-slate-500">
+                    {selectedImage
+                      ? selectedImage.name
+                      : "JPEG, PNG, GIF, or WebP · up to 5 MB"}
+                  </span>
+                </span>
+                <Upload size={16} className="shrink-0 text-slate-400" aria-hidden="true" />
+              </label>
+              <div className="flex items-center justify-between gap-3">
+                <p className="min-w-0 truncate text-xs text-slate-500" aria-live="polite">
+                  {selectedImage
+                    ? `${(selectedImage.size / (1024 * 1024)).toFixed(2)} MB selected`
+                    : "Select an image to update your profile photo."}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => void uploadImage()}
+                  disabled={!selectedImage || uploadingImage}
+                  className={`shrink-0 rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50 ${focusRing}`}
+                >
+                  {uploadingImage ? "Uploading…" : "Upload"}
+                </button>
+              </div>
+            </div>
+          )}
         </section>
 
+        {displayedImageError && (
+          <p role="alert" className="mb-4 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+            {displayedImageError}
+          </p>
+        )}
         {error && (
           <p role="alert" className="mb-4 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">
             {error}

@@ -3,7 +3,12 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import ProfileEditor from "../../../../components/profile/profile-editor";
-import { getUserProfile, updateUserProfile, type UserProfile } from "../../../../lib/api";
+import {
+  getUserProfile,
+  updateUserProfile,
+  uploadUserProfileImage,
+  type UserProfile,
+} from "../../../../lib/api";
 import { checkSession } from "../../../../lib/auth";
 
 export default function AdminUserProfilePage() {
@@ -27,8 +32,8 @@ export default function AdminUserProfilePage() {
         if (!currentUser) {
           throw new Error("Please sign in to view user profiles.");
         }
-        if (currentUser.role_id !== 1) {
-          throw new Error("Only administrators can view another user's profile.");
+        if (currentUser.role_id !== 1 && currentUser.role_id !== 2) {
+          throw new Error("Only administrators or assigned staff can view this profile.");
         }
 
         const userProfile = await getUserProfile(userId);
@@ -71,8 +76,13 @@ export default function AdminUserProfilePage() {
     <ProfileEditor
       initialProfile={profile}
       title={profile.full_name?.trim() || `User #${profile.user_id}`}
-      subtitle={`Administrator profile view · User #${profile.user_id}`}
+      subtitle={`Student profile · User #${profile.user_id}`}
+      canUploadImage
       onSave={(update) => updateUserProfile(profile.user_id, update)}
+      onUploadImage={async (file) => {
+        await uploadUserProfileImage(profile.user_id, file);
+        return getUserProfile(profile.user_id);
+      }}
     />
   );
 }
