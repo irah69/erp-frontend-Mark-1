@@ -2,6 +2,20 @@ This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-
 
 ## Getting Started
 
+### Backend API URL
+
+The frontend reads the backend base URL from `NEXT_PUBLIC_BACKEND_API_URL`.
+For local development, configure it in the ignored root `.env.local` file:
+
+```env
+NEXT_PUBLIC_BACKEND_API_URL=https://your-backend-host
+```
+
+Set the same variable in your deployment platform's environment settings for
+production builds. Because browser requests use this value, it is public; do
+not put secrets in it. If it is unset, local development defaults to
+`http://127.0.0.1:8000`.
+
 First, run the development server:
 
 ```bash

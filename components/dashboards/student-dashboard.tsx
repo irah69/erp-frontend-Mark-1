@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { Charis_SIL } from "next/font/google";
 import {
   Bar,
   BarChart,
@@ -30,13 +29,6 @@ import {
   getStudentReport,
   type StudentAttendanceReport,
 } from "../../lib/attendanceApi";
-
-const charisSil = Charis_SIL({
-  variable: "--font-charis-sil",
-  subsets: ["latin"],
-  weight: ["400", "700"],
-  style: ["normal", "italic"],
-});
 
 /* Statuses that count as "attended" in the trend chart.
    Change this if your backend calculates percentage differently. */
@@ -91,7 +83,7 @@ function formatFullDate(iso: string) {
 function Shell({ children }: { children: ReactNode }) {
   return (
     <main
-      className={`${charisSil.className} min-h-[calc(100vh-65px)] bg-slate-50 px-3 py-5 text-slate-900 sm:px-5 sm:py-8 lg:px-6`}
+      className="min-h-[calc(100vh-65px)] bg-slate-50 px-3 py-5 text-slate-900 sm:px-5 sm:py-8 lg:px-6"
     >
       <div className="mx-auto w-full max-w-6xl">{children}</div>
     </main>

@@ -363,10 +363,9 @@ export default function Sidebar() {
                     : "text-slate-400 hover:bg-white/5 hover:text-white"
                 }`}
               >
-                {/* Accent bar */}
                 <span
                   aria-hidden="true"
-                  className={`absolute left-0 top-1/2 h-6 w-1 -translate-y-1/2 origin-center rounded-r-full bg-gradient-to-b from-violet-500 to-cyan-400 transition-transform duration-300 ${
+                  className={`absolute left-0 top-1/2 h-6 w-1 -translate-y-1/2 origin-center rounded-r-full bg-cyan-400 transition-transform duration-300 ${
                     active ? "scale-y-100" : "scale-y-0 group-hover:scale-y-50"
                   }`}
                 />
@@ -418,7 +417,7 @@ export default function Sidebar() {
               <span
                 aria-hidden="true"
                 title={displayName}
-                className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-violet-500 to-cyan-500 text-sm font-bold text-white shadow-md shadow-violet-500/30"
+                className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-indigo-600 text-sm font-bold text-white"
               >
                 {initials}
               </span>

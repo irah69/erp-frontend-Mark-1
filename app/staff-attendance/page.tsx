@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { Charis_SIL } from "next/font/google";
 import { useEffect, useMemo, useState } from "react";
 import type { AttendanceStatus } from "../../lib/api";
 import {
@@ -11,13 +10,6 @@ import {
   type StaffClassSession,
   type TeacherAttendanceRoster,
 } from "../../lib/attendanceApi";
-
-const charisSil = Charis_SIL({
-  variable: "--font-charis-sil",
-  subsets: ["latin"],
-  weight: ["400", "700"],
-  style: ["normal", "italic"],
-});
 
 const attendanceStatuses: AttendanceStatus[] = [
   "PRESENT",
@@ -236,7 +228,7 @@ export default function StaffAttendancePage() {
   }
 
   return (
-    <main className={`${charisSil.className} attendance`}>
+    <main className="attendance">
       <div className="container">
 
 
@@ -490,7 +482,7 @@ export default function StaffAttendancePage() {
           color: #111827;
           background: #fff;
           border: 1px solid #d1d5db;
-          border-radius: 6px;
+          border-radius: 4px;
           font: inherit;
           font-size: 14px;
         }
@@ -506,7 +498,7 @@ export default function StaffAttendancePage() {
           margin: 0 0 12px;
           padding: 10px 12px;
           border: 1px solid;
-          border-radius: 6px;
+          border-radius: 8px;
           font-size: 14px;
         }
         .error-notice {
@@ -525,7 +517,7 @@ export default function StaffAttendancePage() {
           padding: 16px 14px;
           background: #fff;
           border: 1px solid #e5e7eb;
-          border-radius: 6px;
+          border-radius: 12px;
         }
         .card.accent {
           border-left: 3px solid #4f46e5;
@@ -568,7 +560,7 @@ export default function StaffAttendancePage() {
           text-align: left;
           background: #fff;
           border: 1px solid #e5e7eb;
-          border-radius: 6px;
+          border-radius: 8px;
           font: inherit;
           cursor: pointer;
         }
@@ -610,7 +602,7 @@ export default function StaffAttendancePage() {
         .button {
           min-height: 42px;
           padding: 8px 16px;
-          border-radius: 6px;
+          border-radius: 8px;
           font: inherit;
           font-size: 14px;
           cursor: pointer;
@@ -660,7 +652,7 @@ export default function StaffAttendancePage() {
           margin-bottom: 8px;
           padding: 6px 12px;
           border: 1px solid #e5e7eb;
-          border-radius: 6px;
+          border-radius: 8px;
         }
         .roster-table td {
           display: flex;

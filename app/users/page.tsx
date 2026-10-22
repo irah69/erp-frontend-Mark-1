@@ -22,6 +22,63 @@ type Student = {
   mobile_number?: string | null;
 };
 
+function extractStudents(response: unknown): Student[] {
+  if (typeof response !== "object" || response === null) {
+    throw new Error("Invalid students API response.");
+  }
+
+  const result = response as Record<string, unknown>;
+
+  // API response: { success: true, count: 3, students: [...] }
+  const studentList = Array.isArray(result.students)
+    ? result.students
+    : Array.isArray(result.data)
+      ? result.data
+      : Array.isArray(response)
+        ? response
+        : null;
+
+  if (!studentList) {
+    console.error("Unexpected students API response:", response);
+    throw new Error("Could not find the students array in the API response.");
+  }
+
+  return studentList.map((item): Student => {
+    if (typeof item !== "object" || item === null) {
+      throw new Error("Invalid student record.");
+    }
+
+    const record = item as Record<string, unknown>;
+
+    const id = Number(record.id);
+    const name = record.name ?? record.student_name ?? record.full_name;
+    const rollNumber =
+      record.roll_number ?? record.roll_no ?? record.rollNumber;
+
+    if (!Number.isFinite(id) || typeof name !== "string") {
+      throw new Error("Student record is missing a valid ID or name.");
+    }
+
+    return {
+      id,
+      name,
+      roll_number:
+        typeof rollNumber === "string" || typeof rollNumber === "number"
+          ? String(rollNumber)
+          : "",
+      parent_name:
+        typeof record.parent_name === "string"
+          ? record.parent_name
+          : null,
+      mobile_number:
+        typeof record.mobile_number === "string" ||
+        typeof record.mobile_number === "number"
+          ? String(record.mobile_number)
+          : null,
+    };
+  });
+}
+
 type Staff = {
   id: number;
   name: string;
@@ -168,25 +225,31 @@ export default function UsersPage() {
   const [deleting, setDeleting] = useState(false);
 
   const [error, setError] = useState("");
-
-  async function loadUsers() {
-    setLoading(true);
-
-    try {
-      const [userData, studentData] = await Promise.all([
-        apiRequest<User[]>("/api/users"),
-        apiRequest<{ students: Student[] }>("/api/students"),
-      ]);
-
-      setUsers(userData);
-      setStudents(studentData.students ?? []);
-      setError("");
-    } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : "Unable to load users and students.");
-    } finally {
-      setLoading(false);
-    }
+async function loadStudents() {
+  try {
+    const studentData = await apiRequest<unknown>("/api/students");
+    setStudents(extractStudents(studentData));
+  } catch (requestError) {
+    console.error("Error loading students:", requestError);
   }
+}
+async function loadUsers() {
+  setLoading(true);
+
+  try {
+    const userData = await apiRequest<User[]>("/api/users");
+    setUsers(userData);
+    setError("");
+  } catch (requestError) {
+    setError(
+      requestError instanceof Error
+        ? requestError.message
+        : "Unable to load users."
+    );
+  } finally {
+    setLoading(false);
+  }
+}
 
   async function loadStaff() {
     try {
@@ -201,6 +264,7 @@ export default function UsersPage() {
   useEffect(() => {
     const timer = window.setTimeout(() => {
       void loadUsers();
+      void loadStudents();
       void loadStaff();
     }, 0);
 
@@ -338,7 +402,7 @@ export default function UsersPage() {
   );
 
   return (
-    <section className="min-h-dvh bg-slate-50 font-[family-name:var(--font-charis-sil)] text-slate-900">
+    <section className="min-h-dvh bg-slate-50 font-sans text-slate-900">
       <div className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
         {/* Heading */}
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -415,126 +479,145 @@ export default function UsersPage() {
                   />
                 </Field>
 
-                <Field label="Role">
-                  <select
-                    className={inputClass}
-                    value={form.role}
-                    onChange={(event) => {
-                      const selectedRole = event.target.value;
 
-                      setForm({
-                        ...form,
-                        role: selectedRole,
-                        person_id: "",
-                      });
+<Field label="Role">
+  <select
+    className={inputClass}
+    value={form.role}
+    onChange={(event) => {
+      const selectedRole = event.target.value;
 
-                      setStudentSearch("");
-                      setStaffSearch("");
-                    }}
-                  >
-                    <option value="student">Student</option>
-                    <option value="staff">Staff</option>
-                    <option value="admin">Admin</option>
-                  </select>
-                </Field>
+      setForm({
+        ...form,
+        role: selectedRole,
+        person_id: "",
+      });
 
-                {/* Student fields */}
-                {form.role === "student" && (
-                  <>
-                    <Field label="Search student">
-                      <input
-                        className={inputClass}
-                        value={studentSearch}
-                        onChange={(event) => setStudentSearch(event.target.value)}
-                        placeholder="Name or roll number"
-                      />
-                    </Field>
+      setStudentSearch("");
+      setStaffSearch("");
+    }}
+  >
+    <option value="student">Student</option>
+    <option value="staff">Staff</option>
+    <option value="admin">Admin</option>
+  </select>
+</Field>
 
-                    <Field label="Student">
-                      <select
-                        required
-                        className={inputClass}
-                        value={form.person_id}
-                        onChange={(event) => {
-                          const studentId = event.target.value;
+{/* Student fields */}
+{form.role === "student" && (
+  <>
+    <Field label="Search student">
+      <input
+        className={inputClass}
+        value={studentSearch}
+        onChange={(event) => setStudentSearch(event.target.value)}
+        placeholder="Name or roll number"
+      />
+    </Field>
 
-                          setForm({
-                            ...form,
-                            person_id: studentId,
-                          });
+    <Field label="Student">
+      <select
+        required
+        className={inputClass}
+        value={form.person_id}
+        onChange={(event) => {
+          setForm({
+            ...form,
+            person_id: event.target.value,
+          });
+          setStudentSearch("");
+        }}
+      >
+        <option value="">Select a student</option>
 
-                          setStudentSearch("");
-                        }}
-                      >
-                        <option value="">Select a student</option>
-                        {filteredStudents.map((student) => (
-                          <option key={student.id} value={student.id}>
-                            {student.name} — {student.roll_number} (ID: {student.id})
-                          </option>
-                        ))}
-                      </select>
-                    </Field>
+        {filteredStudents.map((student) => (
+          <option key={student.id} value={student.id}>
+            {student.name} — {student.roll_number} (ID: {student.id})
+          </option>
+        ))}
 
-                    <Field label="Person ID">
-                      <input
-                        readOnly
-                        className={inputClass}
-                        value={form.person_id}
-                        placeholder="Set by student selection"
-                      />
-                    </Field>
-                  </>
-                )}
+        {filteredStudents.length === 0 && (
+          <option value="" disabled>
+            {students.length === 0
+              ? "No students available"
+              : "No students match your search"}
+          </option>
+        )}
+      </select>
+    </Field>
 
-                {/* Staff fields */}
-                {form.role === "staff" && (
-                  <>
-                    <Field label="Search staff">
-                      <input
-                        className={inputClass}
-                        value={staffSearch}
-                        onChange={(event) => setStaffSearch(event.target.value)}
-                        placeholder="Name, number or ID"
-                      />
-                    </Field>
+    <Field label="Person ID">
+      <input
+        readOnly
+        className={inputClass}
+        value={form.person_id}
+        placeholder="Set by student selection"
+      />
+    </Field>
+  </>
+)}
 
-                    <Field label="Staff">
-                      <select
-                        required
-                        className={inputClass}
-                        value={form.person_id}
-                        onChange={(event) => {
-                          const staffId = event.target.value;
+{/* Staff fields */}
+{form.role === "staff" && (
+  <>
+    <Field label="Search staff">
+      <input
+        className={inputClass}
+        value={staffSearch}
+        onChange={(event) => setStaffSearch(event.target.value)}
+        placeholder="Name, number or ID"
+      />
+    </Field>
 
-                          setForm({
-                            ...form,
-                            person_id: staffId,
-                          });
+    <Field label="Staff">
+      <select
+        required
+        className={inputClass}
+        value={form.person_id}
+        onChange={(event) => {
+          setForm({
+            ...form,
+            person_id: event.target.value,
+          });
+          setStaffSearch("");
+        }}
+      >
+        <option value="">Select a staff member</option>
 
-                          setStaffSearch("");
-                        }}
-                      >
-                        <option value="">Select a staff member</option>
-                        {filteredStaff
-                          .filter((member) => member.status.toLowerCase() === "active")
-                          .map((member) => (
-                            <option key={member.id} value={member.id}>
-                              {member.name} — {member.number} (ID: {member.id})
-                            </option>
-                          ))}
-                      </select>
-                    </Field>
+        {filteredStaff
+          .filter(
+            (member) =>
+              member.status?.toLowerCase() === "active"
+          )
+          .map((member) => (
+            <option key={member.id} value={member.id}>
+              {member.name} — {member.number} (ID: {member.id})
+            </option>
+          ))}
 
-                    <Field label="Person ID">
-                      <input
-                        readOnly
-                        className={inputClass}
-                        value={form.person_id}
-                        placeholder="Set by staff selection"
-                      />
-                    </Field>
-                  </>
-                )}
+        {filteredStaff.filter(
+          (member) => member.status?.toLowerCase() === "active"
+        ).length === 0 && (
+          <option value="" disabled>
+            {staff.length === 0
+              ? "No staff available"
+              : "No active staff match your search"}
+          </option>
+        )}
+      </select>
+    </Field>
+
+    <Field label="Person ID">
+      <input
+        readOnly
+        className={inputClass}
+        value={form.person_id}
+        placeholder="Set by staff selection"
+      />
+    </Field>
+  </>
+)}
+
               </div>
 
               <div className="mt-4 flex flex-col gap-2 sm:flex-row">

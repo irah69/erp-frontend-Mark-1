@@ -943,17 +943,7 @@ const debugCss = `
   padding: 24px;
   box-sizing: border-box;
 
-  background:
-    radial-gradient(
-      circle at top left,
-      rgba(10, 132, 255, 0.08),
-      transparent 35%
-    ),
-    radial-gradient(
-      circle at bottom right,
-      rgba(124, 58, 237, 0.08),
-      transparent 35%
-    );
+  background: #f6f7fb;
 }
 
 .staff-debug-container {
@@ -970,16 +960,11 @@ const debugCss = `
   padding: 22px;
 
   border: 1px solid rgba(128, 128, 128, 0.22);
-  border-radius: 18px;
+  border-radius: 12px;
 
-  background: rgba(255, 255, 255, 0.7);
+  background: #fff;
 
-  box-shadow:
-    0 8px 30px rgba(20, 30, 60, 0.08),
-    inset 0 1px 0 rgba(255, 255, 255, 0.8);
-
-  backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
+  box-shadow: 0 2px 8px rgba(20, 30, 60, 0.05);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -993,7 +978,7 @@ const debugCss = `
   display: inline-flex;
   padding: 5px 10px;
 
-  border-radius: 999px;
+  border-radius: 8px;
 
   font-size: 0.75rem;
   font-weight: 700;
@@ -1096,7 +1081,7 @@ const debugCss = `
 .error-message {
   padding: 12px 14px;
 
-  border-radius: 10px;
+  border-radius: 8px;
 
   margin-bottom: 14px;
 }
@@ -1124,7 +1109,7 @@ const debugCss = `
   padding: 10px 16px;
 
   border: 0;
-  border-radius: 10px;
+  border-radius: 8px;
 
   background: rgb(10, 132, 255);
   color: white;
@@ -1243,7 +1228,7 @@ const debugCss = `
 
   padding: 16px;
 
-  border-radius: 14px;
+  border-radius: 12px;
 
   border: 1px solid
     rgba(128, 128, 128, 0.18);
@@ -1314,7 +1299,7 @@ const debugCss = `
 
   padding: 14px;
 
-  border-radius: 10px;
+  border-radius: 8px;
 
   background: rgba(
     10,
@@ -1336,7 +1321,7 @@ const debugCss = `
 
   .staff-debug-card {
     padding: 16px;
-    border-radius: 14px;
+    border-radius: 12px;
   }
 
   .info-grid {

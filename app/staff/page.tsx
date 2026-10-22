@@ -250,7 +250,7 @@ export default function StaffPage() {
   );
 
   return (
-    <section className="min-h-dvh bg-slate-50 font-[family-name:var(--font-charis-sil)] text-slate-900">
+    <section className="min-h-dvh bg-slate-50 font-sans text-slate-900">
       <div className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
         {/* Heading */}
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
