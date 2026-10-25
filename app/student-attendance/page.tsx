@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import StudentAttendance from "../../components/dashboards/student-attendance";
 import { checkSession, type CurrentUser } from "../../lib/auth";
+import Loader from "../../components/ui/loader";
 
 export default function StudentAttendancePage() {
   const [user, setUser] = useState<CurrentUser | null>(null);
@@ -22,11 +23,7 @@ export default function StudentAttendancePage() {
   }, []);
 
   if (loading) {
-    return (
-      <main className="min-h-dvh bg-slate-50 px-4 py-10 text-center text-sm text-slate-500">
-        Loading your attendance...
-      </main>
-    );
+    return <Loader title="Loading your attendance..." subtitle="Checking your account" className="min-h-dvh" />;
   }
   if (!user) {
     return (

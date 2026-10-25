@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { ArrowLeft, Plus, RefreshCw, Search, Trash2 } from "lucide-react";
+import Loader from "../ui/loader";
 import {
   getSchedulingGrades,
   getSchedulingSections,
@@ -439,7 +440,7 @@ export default function AdminExam() {
               <select className={inputClass} value={sectionFilter} onChange={(e) => setSectionFilter(e.target.value)}><option value="">All sections</option>{grades.map((grade) => <option key={grade.id} value={grade.id}>Grade {grade.grade} · {sections.find((section) => section.id === grade.section_id)?.section ?? "—"} · {grade.academic_year}</option>)}</select>
               <select className={inputClass} value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}><option value="">All statuses</option>{(["draft", "scheduled", "completed", "published"] as ExamStatus[]).map((status) => <option key={status}>{status}</option>)}</select>
             </div>
-            {loading ? <p className="p-10 text-center text-sm text-slate-500">Loading examinations…</p> : visibleExams.length === 0 ? (
+            {loading ? <Loader title="Loading examinations…" subtitle="Retrieving examinations" size="sm" /> : visibleExams.length === 0 ? (
               <p className="p-10 text-center text-sm text-slate-500">No examinations match your filters.</p>
             ) : (
               <div className="overflow-x-auto">

@@ -1,18 +1,47 @@
 import type { Metadata } from "next";
-import { Inter, Manrope } from "next/font/google";
+import type { CSSProperties } from "react";
+import { Geist, Geist_Mono } from "next/font/google";
+import Script from "next/script";
 import Sidebar from "../components/sidebar";
 import SessionGuard from "../components/session-guard";
+import { ThemeProvider } from "../components/theme-provider";
+import { designSystem } from "../config/design-system";
 import "./globals.css";
+import "./design-system.css";
 
-const inter = Inter({
-  variable: "--font-inter",
+const geist = Geist({
+  variable: "--font-geist-sans",
   subsets: ["latin"],
 });
 
-const manrope = Manrope({
-  variable: "--font-manrope",
+const geistMono = Geist_Mono({
+  variable: "--font-geist-mono",
   subsets: ["latin"],
 });
+
+const designTokensStyle = {
+  "--font-app": designSystem.fonts.sans,
+  "--font-technical": designSystem.fonts.mono,
+  "--font-body-size": designSystem.type.body,
+  "--font-small-size": designSystem.type.small,
+  "--font-heading-size": designSystem.type.heading,
+  "--sidebar-width": designSystem.layout.sidebar,
+  "--sidebar-collapsed-width": designSystem.layout.sidebarCollapsed,
+  "--content-width": designSystem.layout.content,
+  "--page-gutter": designSystem.layout.pageGutter,
+  "--radius-control": designSystem.radius.control,
+  "--radius-interactive": designSystem.radius.control,
+  "--radius-surface": designSystem.radius.surface,
+  "--radius-overlay": designSystem.radius.dialog,
+  "--shadow-surface": designSystem.shadow.surface,
+  "--control-height": designSystem.controls.height,
+  "--touch-target": designSystem.controls.touchTarget,
+  "--font-weight-normal": String(designSystem.type.weights.normal),
+  "--font-weight-medium": String(designSystem.type.weights.medium),
+  "--font-weight-semibold": String(designSystem.type.weights.semibold),
+  "--font-weight-bold": String(designSystem.type.weights.bold),
+  ...Object.fromEntries(designSystem.spacing.map((value, index) => [`--space-${index + 1}`, `${value}px`])),
+} as CSSProperties;
 
 export const metadata: Metadata = {
   title: "Student ERP",
@@ -23,27 +52,29 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
-      className={`${inter.variable} ${manrope.variable} h-full antialiased`}
+      suppressHydrationWarning
+      className={`${geist.variable} ${geistMono.variable} h-full antialiased`}
+      style={designTokensStyle}
     >
       <body className="min-h-dvh bg-gray-50 text-gray-900">
-        <SessionGuard />
-
-        <div className="group/shell min-h-dvh">
-          <Sidebar />
-
-          <main
+        <Script id="theme-initializer" strategy="beforeInteractive">
+          {`try{var t=localStorage.getItem('solvane-theme')||'system';var d=t==='system'?(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'):t;var c=${JSON.stringify(designSystem.themes)};document.documentElement.dataset.themeMode=t;document.documentElement.dataset.theme=d;Object.entries(c[d]).forEach(function(e){document.documentElement.style.setProperty('--'+e[0],e[1])});var ch=${JSON.stringify(designSystem.charts)}[d];ch.series.forEach(function(v,i){document.documentElement.style.setProperty('--chart-'+(i+1),v)});Object.entries(ch.statuses).forEach(function(e){document.documentElement.style.setProperty('--chart-status-'+e[0],e[1])})}catch(e){}`}
+        </Script>
+        <ThemeProvider>
+          <SessionGuard />
+          <div className="group/shell min-h-dvh">
+            <Sidebar />
+            <main
   className="
     min-h-dvh w-full min-w-0
-    transition-[padding] duration-300 ease-out motion-reduce:transition-none
     group-has-[#app-sidebar]/shell:pt-16
     lg:group-has-[#app-sidebar]/shell:pt-0
-    lg:group-has-[#app-sidebar[data-pinned='false']]/shell:pl-20
-    lg:group-has-[#app-sidebar[data-pinned='true']]/shell:pl-72
   "
->
-            {children}
-          </main>
-        </div>
+            >
+              {children}
+            </main>
+          </div>
+        </ThemeProvider>
       </body>
     </html>
   );

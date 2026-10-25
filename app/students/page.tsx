@@ -3,6 +3,7 @@
 import { FormEvent, ReactNode, useEffect, useId, useState } from "react";
 import { AlertCircle, Pencil, Plus, Search, Trash2, X } from "lucide-react";
 import { apiRequest } from "../../lib/api";
+import Loader from "../../components/ui/loader";
 
 type Student = {
   id: number;
@@ -338,7 +339,7 @@ export default function StudentsPage() {
           </div>
 
           {loading ? (
-            <p className="px-4 py-10 text-center text-sm text-slate-500">Loading students...</p>
+            <Loader title="Loading students..." subtitle="Retrieving student records" size="sm" />
           ) : filteredStudents.length === 0 ? (
             <p className="px-4 py-10 text-center text-sm text-slate-500">No students found.</p>
           ) : (

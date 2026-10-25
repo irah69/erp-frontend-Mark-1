@@ -10,6 +10,7 @@ import {
   type UserProfile,
 } from "../../../../lib/api";
 import { checkSession } from "../../../../lib/auth";
+import Loader from "../../../../components/ui/loader";
 
 export default function AdminUserProfilePage() {
   const params = useParams<{ id: string }>();
@@ -54,11 +55,7 @@ export default function AdminUserProfilePage() {
   }, [userId, userIdParam]);
 
   if (loading || (!error && profile && profile.user_id !== userId)) {
-    return (
-      <main className="grid min-h-dvh place-items-center bg-slate-50 px-4 text-sm text-slate-600">
-        Loading user profile…
-      </main>
-    );
+    return <Loader title="Loading user profile…" subtitle="Retrieving this account's profile" className="min-h-dvh" />;
   }
 
   if (error || !profile) {

@@ -3,6 +3,7 @@
 import { FormEvent, ReactNode, useEffect, useId, useState } from "react";
 import { AlertCircle, Pencil, Plus, Search, Trash2, X } from "lucide-react";
 import { apiRequest } from "../../lib/api";
+import Loader from "../../components/ui/loader";
 
 type Staff = {
   id: number;
@@ -400,7 +401,7 @@ export default function StaffPage() {
             </div>
 
             {loading ? (
-              <p className="px-4 py-10 text-center text-sm text-slate-500">Loading staff...</p>
+              <Loader title="Loading staff..." subtitle="Retrieving staff records" size="sm" />
             ) : filteredStaff.length === 0 ? (
               <p className="px-4 py-10 text-center text-sm text-slate-500">No staff found.</p>
             ) : (

@@ -5,6 +5,7 @@ import AdminExam from "../../components/exams/admin-exam";
 import StaffExam from "../../components/exams/staff-exam";
 import StudentExam from "../../components/exams/student-exam";
 import { checkSession, type CurrentUser } from "../../lib/auth";
+import Loader from "../../components/ui/loader";
 
 export default function ExamsPage() {
   const [user, setUser] = useState<CurrentUser | null>(null);
@@ -24,7 +25,7 @@ export default function ExamsPage() {
   }, []);
 
   if (loading) {
-    return <main className="min-h-dvh bg-slate-50 px-4 py-10 text-center text-sm text-slate-500">Loading examinations…</main>;
+    return <Loader title="Loading examinations…" subtitle="Checking your access" className="min-h-dvh" />;
   }
   if (!user) {
     return <main className="min-h-dvh bg-slate-50 px-4 py-10 text-center text-sm text-red-700" role="alert">Please sign in to access examinations.</main>;

@@ -1,7 +1,9 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { Button } from "../../components/ui/button";
+import { FormField } from "../../components/ui/form-field";
+import Loader from "../../components/ui/loader";
 import type { AttendanceStatus } from "../../lib/api";
 import {
   getStaffClassSessions,
@@ -240,8 +242,7 @@ export default function StaffAttendancePage() {
               attendance for that class.
             </p>
           </div>
-          <label className="field">
-            Session date
+          <FormField label="Session date">
             <input
               type="date"
               value={sessionDate}
@@ -250,7 +251,7 @@ export default function StaffAttendancePage() {
                 setSelectedSessionId("");
               }}
             />
-          </label>
+          </FormField>
         </header>
 
         {error && (
@@ -275,7 +276,7 @@ export default function StaffAttendancePage() {
           </div>
 
           {classesLoading ? (
-            <p className="muted">Loading your sessions…</p>
+            <Loader title="Loading your sessions…" subtitle="Retrieving assigned sessions" size="sm" />
           ) : classes.length === 0 ? (
             <p className="muted">
               No sessions are assigned to you for this date.
@@ -337,7 +338,7 @@ export default function StaffAttendancePage() {
             </div>
 
             {rosterLoading ? (
-              <p className="muted pad">Loading students…</p>
+              <Loader title="Loading students…" subtitle="Retrieving the class roster" size="sm" />
             ) : !roster ? (
               <p className="muted pad">The roster could not be displayed.</p>
             ) : roster.students.length === 0 ? (
@@ -351,14 +352,13 @@ export default function StaffAttendancePage() {
                     {roster.marked_students} of {roster.total_students} students
                     already marked
                   </p>
-                  <button
-                    className="button secondary"
+                  <Button
                     type="button"
                     onClick={markAllPresent}
                     disabled={saving}
                   >
                     Mark all present
-                  </button>
+                  </Button>
                 </div>
 
                 <table className="roster-table">
@@ -408,14 +408,15 @@ export default function StaffAttendancePage() {
                 </table>
 
                 <div className="save-row">
-                  <button
-                    className="button primary"
+                  <Button
+                    variant="primary"
+                    className="w-full"
                     type="button"
                     disabled={saving || rosterLoading}
                     onClick={() => void submitAttendance()}
                   >
                     {saving ? "Saving attendance…" : "Save attendance"}
-                  </button>
+                  </Button>
                 </div>
               </>
             )}

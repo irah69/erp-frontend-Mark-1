@@ -4,6 +4,7 @@ import { FormEvent, ReactNode, useEffect, useId, useState } from "react";
 import Link from "next/link";
 import { AlertCircle, Pencil, Plus, Search, Trash2, UserRound, X } from "lucide-react";
 import { apiRequest } from "../../lib/api";
+import Loader from "../../components/ui/loader";
 
 type User = {
   id: number;
@@ -710,7 +711,7 @@ async function loadUsers() {
             </div>
 
             {loading ? (
-              <p className="px-4 py-10 text-center text-sm text-slate-500">Loading users...</p>
+              <Loader title="Loading users..." subtitle="Retrieving user accounts" size="sm" />
             ) : filteredUsers.length === 0 ? (
               <p className="px-4 py-10 text-center text-sm text-slate-500">No users found.</p>
             ) : (

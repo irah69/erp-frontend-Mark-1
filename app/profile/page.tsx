@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import ProfileEditor from "../../components/profile/profile-editor";
+import Loader from "../../components/ui/loader";
 import {
   getCurrentUser,
   getMyUserProfile,
@@ -54,11 +55,7 @@ export default function ProfilePage() {
   }, []);
 
   if (loading) {
-    return (
-      <main className="grid min-h-dvh place-items-center bg-slate-50 px-4 text-sm text-slate-600">
-        Loading your profile…
-      </main>
-    );
+    return <Loader title="Loading your profile…" subtitle="Retrieving your account details" className="min-h-dvh" />;
   }
 
   if (error || !profile || !user) {

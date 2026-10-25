@@ -2,6 +2,7 @@
 
 import { ReactNode, useEffect, useMemo, useState } from "react";
 import { AlertCircle, CheckCircle2, X } from "lucide-react";
+import Loader from "../../components/ui/loader";
 import {
   GradeOption,
   SectionOption,
@@ -291,6 +292,7 @@ export default function TimetablePage() {
           {/* Open timetable */}
           <div className={accentPanel}>
             <h2 className="text-base font-semibold">Open timetable</h2>
+            {loading && <Loader title="Loading timetable options…" subtitle="Retrieving classes and subjects" size="sm" className="py-4" />}
 
             <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
               <Field label="Class & section">

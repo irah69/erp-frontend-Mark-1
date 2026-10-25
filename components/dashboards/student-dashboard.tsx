@@ -13,6 +13,7 @@ import {
 } from "recharts";
 
 import { Card, CardContent } from "@/components/ui/card";
+import Loader from "@/components/ui/loader";
 import {
   ChartContainer,
   ChartTooltip,
@@ -37,7 +38,6 @@ import type { StudentAttendanceReport } from "../../lib/attendanceApi";
 import {
   getExamResults,
   listStudentExams,
-  type ExamRecord,
 } from "../../lib/examApi";
 
 /* Statuses that count as "attended" in the trend chart.
@@ -45,10 +45,10 @@ import {
 const ATTENDED_STATUSES: AttendanceStatus[] = ["PRESENT", "LATE"];
 
 const STATUS_COLORS: Record<AttendanceStatus, string> = {
-  PRESENT: "#16a34a",
-  ABSENT: "#dc2626",
-  LATE: "#d97706",
-  EXCUSED: "#4f46e5",
+  PRESENT: "var(--chart-status-present)",
+  ABSENT: "var(--chart-status-absent)",
+  LATE: "var(--chart-status-late)",
+  EXCUSED: "var(--chart-status-excused)",
 };
 
 const STATUS_BADGE: Record<AttendanceStatus, string> = {
@@ -59,15 +59,15 @@ const STATUS_BADGE: Record<AttendanceStatus, string> = {
 };
 
 const trendConfig = {
-  value: { label: "Attendance", color: "#4f46e5" },
+  value: { label: "Attendance", theme: { light: "var(--chart-1)", dark: "var(--chart-1)" } },
 } satisfies ChartConfig;
 
 const marksTrendConfig = {
-  value: { label: "Marks", color: "#16a34a" },
+  value: { label: "Marks", theme: { light: "var(--chart-3)", dark: "var(--chart-3)" } },
 } satisfies ChartConfig;
 
 const statusConfig = {
-  value: { label: "Classes", color: "#4f46e5" },
+  value: { label: "Classes", theme: { light: "var(--chart-1)", dark: "var(--chart-1)" } },
 } satisfies ChartConfig;
 
 const cardClass = "rounded-md shadow-none";
@@ -363,18 +363,7 @@ export default function StudentDashboard({ user }: { user: CurrentUser }) {
 
   if (loading) {
     return (
-      <Shell>
-        <Card className={accentCardClass}>
-          <CardContent className={cardBodyClass}>
-            <h1 className="mb-1 text-xl font-bold sm:text-2xl">
-              Loading your dashboard…
-            </h1>
-            <p className="text-sm text-slate-500">
-              Please wait while we load your student information.
-            </p>
-          </CardContent>
-        </Card>
-      </Shell>
+      <Shell><Loader title="Loading your dashboard…" subtitle="Please wait while we load your student information" className="min-h-[60vh]" /></Shell>
     );
   }
 
@@ -523,9 +512,7 @@ export default function StudentDashboard({ user }: { user: CurrentUser }) {
                 Published exam percentages{academicYear ? ` · ${academicYear}` : ""}
               </p>
               {marksTrendLoading ? (
-                <p className="flex h-56 items-center justify-center text-sm text-slate-500 sm:h-72">
-                  Loading published exam marks…
-                </p>
+                <Loader title="Loading published exam marks…" subtitle="Retrieving your results" size="sm" className="h-56 sm:h-72" />
               ) : marksTrend.length > 0 ? (
                 <>
                   <ChartContainer

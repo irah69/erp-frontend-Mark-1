@@ -19,7 +19,7 @@ type ChartTooltipContentProps = React.ComponentProps<'div'> & {
   labelKey?: string;
 };
 
-const THEMES = { light: '', dark: '.dark' } as const;
+const THEMES = { light: 'html[data-theme="light"]', dark: 'html[data-theme="dark"]' } as const;
 
 export type ChartConfig = {
   [key in string]: {

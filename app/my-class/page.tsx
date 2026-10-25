@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AlertCircle, Pencil, Search, UsersRound } from "lucide-react";
+import { PageHeader } from "../../components/ui/page-header";
+import Loader from "../../components/ui/loader";
 import {
   apiRequest,
   getClassStudents,
@@ -127,32 +129,27 @@ export default function MyClassPage() {
   return (
     <main className="min-h-dvh bg-slate-50 px-4 py-7 text-slate-900 sm:px-6 sm:py-10">
       <div className="mx-auto w-full max-w-7xl">
-        <header className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <p className="mb-1 text-xs font-bold uppercase tracking-[0.12em] text-indigo-700">
-              Staff workspace
-            </p>
-            <h1 className="text-3xl font-bold tracking-tight">My Class</h1>
-            <p className="mt-1 text-sm text-slate-500">
-              {user ? `Classes assigned to ${user.username}` : "Your assigned classes and student profiles"}
-            </p>
-          </div>
-          <label className="relative w-full sm:max-w-xs">
-            <Search
-              size={16}
-              aria-hidden="true"
-              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
-            />
-            <span className="sr-only">Search classes and students</span>
-            <input
-              type="search"
-              placeholder="Search classes or students…"
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              className="w-full rounded-md border border-slate-300 bg-white py-2 pl-9 pr-3 text-sm text-slate-900 focus:border-indigo-600 focus:outline-none focus:ring-1 focus:ring-indigo-600"
-            />
-          </label>
-        </header>
+        <PageHeader
+          title="My class"
+          description={user ? `Classes assigned to ${user.username}` : "Your assigned classes and student profiles"}
+          actions={
+            <label className="relative w-full sm:max-w-xs">
+              <Search
+                size={16}
+                aria-hidden="true"
+                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+              />
+              <span className="sr-only">Search classes and students</span>
+              <input
+                type="search"
+                placeholder="Search classes or students…"
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                className="w-full rounded-md border border-slate-300 bg-white py-2 pl-9 pr-3 text-sm text-slate-900 focus:border-indigo-600 focus:outline-none focus:ring-1 focus:ring-indigo-600"
+              />
+            </label>
+          }
+        />
 
         {error && (
           <div
@@ -165,9 +162,7 @@ export default function MyClassPage() {
         )}
 
         {loading ? (
-          <p className="rounded-lg border border-slate-200 bg-white p-8 text-center text-sm text-slate-500">
-            Loading your classes…
-          </p>
+          <Loader title="Loading your classes…" subtitle="Retrieving your assigned rosters" size="sm" />
         ) : assignedClasses.length === 0 ? (
           <section className="rounded-lg border border-slate-200 bg-white px-5 py-12 text-center">
             <UsersRound className="mx-auto text-slate-400" size={30} aria-hidden="true" />
@@ -187,7 +182,7 @@ export default function MyClassPage() {
               >
                 <header className="flex flex-col gap-3 border-b border-slate-200 bg-slate-50 p-4 sm:flex-row sm:items-center sm:justify-between">
                   <div>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-indigo-700">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-foreground">
                       {roster.academic_year}
                     </p>
                     <h2 className="mt-1 text-lg font-semibold">

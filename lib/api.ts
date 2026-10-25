@@ -1,6 +1,11 @@
 const configuredBackendUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL?.trim();
 
-export const API_BASE_URL = "https://erp-backend-1-y2er.onrender.com"
+export const API_BASE_URL = (
+  configuredBackendUrl ||
+  (process.env.NODE_ENV === "development"
+    ? "http://127.0.0.1:8000"
+    : "https://erp-backend-1-y2er.onrender.com")
+).replace(/\/+$/, "");
 
 export type ApiRequestError = Error & {
   status?: number;
@@ -611,7 +616,7 @@ export function getSchedulingStaff() {
 export function getSchedulingSubjects() {
   return apiRequest<
     SubjectOption[]
-  >("/api/subjects/");
+  >("/api/subjects");
 }
 
 export function getSchedulingGrades() {

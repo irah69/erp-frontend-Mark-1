@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Download } from "lucide-react";
 import type { CurrentUser } from "../../lib/auth";
+import Loader from "../ui/loader";
 import {
   getExamResults,
   listStudentExams,
@@ -251,7 +252,7 @@ export default function StudentExam({ user }: { user: CurrentUser }) {
             </button>
           </div>
           {loading ? (
-            <p className="p-8 text-center text-sm text-slate-500">Loading your exams…</p>
+            <Loader title="Loading your exams…" subtitle="Retrieving your examination results" size="sm" />
           ) : visibleExams.length === 0 ? (
             <p className="p-8 text-center text-sm text-slate-500">
               {activeTab === "upcoming" ? "You have no scheduled exams." : "You have no completed exams yet."}

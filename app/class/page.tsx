@@ -4,6 +4,7 @@ import { FormEvent, ReactNode, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AlertCircle, Pencil, Search, X } from "lucide-react";
 import { apiRequest, getClassStudents, type ClassRosterStudent } from "../../lib/api";
+import Loader from "../../components/ui/loader";
 
 type Grade = {
   id: number;
@@ -408,7 +409,7 @@ export default function ClassPage() {
             </div>
 
             {loading ? (
-              <p className="px-4 py-10 text-center text-sm text-slate-500">Loading class data...</p>
+              <Loader title="Loading class data..." subtitle="Retrieving the selected roster" size="sm" />
             ) : !result ? (
               <p className="px-4 py-10 text-center text-sm text-slate-500">
                 Choose a grade and section to view the class roster.

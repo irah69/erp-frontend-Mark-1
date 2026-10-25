@@ -3,6 +3,7 @@
 import { FormEvent, ReactNode, useEffect, useId, useState } from "react";
 import { AlertCircle, Pencil, Plus, Search, Trash2, X } from "lucide-react";
 import { apiRequest } from "../../lib/api";
+import Loader from "../../components/ui/loader";
 
 /* =========================
    TYPES
@@ -684,7 +685,7 @@ export default function AcademicPage() {
               </div>
 
               {loading ? (
-                <p className="px-4 py-10 text-center text-sm text-slate-500">Loading grades...</p>
+                <Loader title="Loading grades..." subtitle="Retrieving academic records" size="sm" />
               ) : filteredGrades.length === 0 ? (
                 <p className="px-4 py-10 text-center text-sm text-slate-500">No grades found.</p>
               ) : (
@@ -898,7 +899,7 @@ export default function AcademicPage() {
               </div>
 
               {loading ? (
-                <p className="px-4 py-10 text-center text-sm text-slate-500">Loading sections...</p>
+                <Loader title="Loading sections..." subtitle="Retrieving academic records" size="sm" />
               ) : filteredSections.length === 0 ? (
                 <p className="px-4 py-10 text-center text-sm text-slate-500">No sections found.</p>
               ) : (

@@ -6,6 +6,7 @@ import ParentDashboard from "../../components/dashboards/parent-dashboard";
 import StaffDashboard from "../../components/dashboards/staff-dashboard";
 import StudentDashboard from "../../components/dashboards/student-dashboard";
 import { checkSession, type CurrentUser } from "../../lib/auth";
+import Loader from "../../components/ui/loader";
 
 const roleNames: Record<number, "admin" | "staff" | "student" | "parent"> = {
   1: "admin",
@@ -25,12 +26,12 @@ export default function DashboardPage() {
     return () => window.clearTimeout(timer);
   }, []);
 
-  if (loading) return <section className="page-section"><p className="state-text">Loading dashboard...</p></section>;
+  if (loading) return <Loader title="Loading dashboard..." subtitle="Checking your account and preparing your workspace" size="md" className="min-h-dvh" />;
   if (!user) return <section className="page-section"><p className="alert error">Please sign in to access your dashboard.</p></section>;
 
   switch (roleNames[Number(user.role_id)]) {
     case "admin": return <AdminDashboard user={user} />;
-    case "staff": return <StaffDashboard user={user} />;
+    case "staff": return <StaffDashboard />;
     case "student": return <StudentDashboard user={user} />;
     case "parent": return <ParentDashboard user={user} />;
     default: return <section className="page-section"><p className="alert error">Your account does not have a supported dashboard role.</p></section>;

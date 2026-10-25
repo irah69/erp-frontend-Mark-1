@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { CurrentUser } from "../../lib/auth";
+import Loader from "../ui/loader";
 import {
   getAttendanceRecords,
   getClassSessions,
@@ -86,11 +87,7 @@ export default function StudentAttendance({ user }: { user: CurrentUser }) {
   }, [user.person_id, selectedYear]);
 
   if (loading) {
-    return (
-      <section className="min-h-dvh bg-slate-50 px-4 py-10 text-center text-sm text-slate-500">
-        Loading your attendance...
-      </section>
-    );
+    return <Loader title="Loading your attendance..." subtitle="Retrieving your attendance history" className="min-h-dvh" />;
   }
 
   if (error) {

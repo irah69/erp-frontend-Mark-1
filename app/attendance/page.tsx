@@ -17,6 +17,7 @@ import {
 } from "../../lib/api";
 import { checkSession, type CurrentUser } from "../../lib/auth";
 import StudentAttendance from "../../components/dashboards/student-attendance";
+import Loader from "../../components/ui/loader";
 import {
   ClassDaySession,
   ClassRoster,
@@ -188,11 +189,7 @@ export default function AttendancePage() {
   }, []);
 
   if (sessionLoading) {
-    return (
-      <section className="min-h-dvh bg-slate-50 px-4 py-10 text-center text-sm text-slate-500">
-        Loading attendance...
-      </section>
-    );
+    return <Loader title="Loading attendance..." subtitle="Checking your account" className="min-h-dvh" />;
   }
 
   if (!user) {
@@ -713,7 +710,9 @@ function AttendanceManagementPage() {
             {/* Roster */}
             <div className={plainPanel}>
               {emptyState ? (
-                <p className="px-4 py-10 text-center text-sm text-slate-500">{emptyState}</p>
+                emptyState.startsWith("Loading") ? (
+                  <Loader title={emptyState} subtitle="Preparing attendance records" size="sm" />
+                ) : <p className="px-4 py-10 text-center text-sm text-slate-500">{emptyState}</p>
               ) : students.length === 0 ? (
                 <p className="px-4 py-10 text-center text-sm text-slate-500">
                   No students are assigned to {sectionName || "this section"}.
@@ -839,7 +838,7 @@ function AttendanceManagementPage() {
 
             {reportLoading ? (
               <div className={plainPanel}>
-                <p className="px-4 py-10 text-center text-sm text-slate-500">Loading attendance...</p>
+                <Loader title="Loading attendance..." subtitle="Retrieving the student report" size="sm" />
               </div>
             ) : !report ? (
               <div className={plainPanel}>

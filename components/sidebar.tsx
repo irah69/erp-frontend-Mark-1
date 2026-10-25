@@ -24,6 +24,7 @@ import {
 import { useEffect, useState } from "react";
 import { checkSession, logout, type CurrentUser } from "../lib/auth";
 import { getMyUserProfile, getUserProfileImage } from "../lib/api";
+import { ThemeSelector } from "./theme-provider";
 
 type NavigationItem = {
   href: string;
@@ -56,8 +57,6 @@ const roleLabels: Record<number, string> = {
   4: "Parent",
 };
 
-const PIN_KEY = "sidebar-pinned";
-
 function Brand({ size = 40, collapsed = false }: { size?: number; collapsed?: boolean }) {
   return (
     <Link
@@ -81,7 +80,7 @@ function Brand({ size = 40, collapsed = false }: { size?: number; collapsed?: bo
   />
 </div>
       <span
-        className={`flex min-w-0 flex-col gap-1 whitespace-nowrap transition-all duration-300 motion-reduce:transition-none ${
+        className={`flex min-w-0 flex-col gap-1 whitespace-nowrap ${
           collapsed ? "lg:w-0 lg:overflow-hidden lg:opacity-0" : ""
         }`}
       >
@@ -105,31 +104,17 @@ export default function Sidebar() {
     url: string;
   } | null>(null);
   const [mobilePath, setMobilePath] = useState<string | null>(null);
-  const [pinned, setPinned] = useState(false); // desktop: keep expanded + push content
-  const [peek, setPeek] = useState(false); // desktop: hover/focus expands as overlay
+  const [pinned, setPinned] = useState(false);
+  const [hovered, setHovered] = useState(false);
   const mobileOpen = Boolean(pathname && mobilePath === pathname);
-
-  // Desktop is expanded when pinned or being hovered/focused
-  const expanded = pinned || peek;
+  const expanded = pinned || hovered;
   const collapsed = !expanded;
 
   const hidden = pathname === "/login" || pathname?.startsWith("/login/");
   const currentUserId = user?.id ?? null;
 
-  useEffect(() => {
-    try {
-      setPinned(localStorage.getItem(PIN_KEY) === "true");
-    } catch {}
-  }, []);
-
   function togglePin() {
-    setPinned((current) => {
-      const next = !current;
-      try {
-        localStorage.setItem(PIN_KEY, String(next));
-      } catch {}
-      return next;
-    });
+    setPinned((current) => !current);
   }
 
   useEffect(() => {
@@ -230,7 +215,7 @@ export default function Sidebar() {
   return (
     <>
       {/* Mobile / tablet top bar */}
-      <header className="fixed inset-x-0 top-0 z-40 flex h-16 items-center justify-between border-b border-white/10 bg-slate-950/90 px-4 backdrop-blur-md lg:hidden">
+      <header className="app-mobile-header fixed inset-x-0 top-0 z-40 flex h-16 items-center justify-between border-b border-white/10 bg-slate-950 px-4 lg:hidden">
         <Brand size={36} />
         <button
           type="button"
@@ -238,18 +223,18 @@ export default function Sidebar() {
           aria-expanded={mobileOpen}
           aria-controls="app-sidebar"
           aria-label={mobileOpen ? "Close navigation menu" : "Open navigation menu"}
-          className="relative grid h-10 w-10 place-items-center rounded-xl text-slate-300 outline-none transition hover:bg-white/10 hover:text-white focus-visible:ring-2 focus-visible:ring-cyan-400/70 active:scale-90"
+          className="relative grid h-11 w-11 place-items-center rounded-lg text-slate-300 outline-none transition-colors duration-150 hover:bg-white/10 hover:text-white focus-visible:ring-2 focus-visible:ring-cyan-400/70"
         >
           <Menu
             size={22}
-            className={`absolute transition-all duration-300 motion-reduce:transition-none ${
-              mobileOpen ? "rotate-90 scale-0 opacity-0" : "rotate-0 scale-100 opacity-100"
+            className={`absolute transition-opacity duration-150 ${
+              mobileOpen ? "opacity-0" : "opacity-100"
             }`}
           />
           <X
             size={22}
-            className={`absolute transition-all duration-300 motion-reduce:transition-none ${
-              mobileOpen ? "rotate-0 scale-100 opacity-100" : "-rotate-90 scale-0 opacity-0"
+            className={`absolute transition-opacity duration-150 ${
+              mobileOpen ? "opacity-100" : "opacity-0"
             }`}
           />
         </button>
@@ -262,7 +247,7 @@ export default function Sidebar() {
         aria-hidden={!mobileOpen}
         aria-label="Close navigation menu"
         onClick={() => setMobilePath(null)}
-        className={`fixed inset-0 z-40 bg-black/60 backdrop-blur-sm transition-opacity duration-300 motion-reduce:transition-none lg:hidden ${
+        className={`fixed inset-0 z-40 bg-black/60 transition-opacity duration-150 motion-reduce:transition-none lg:hidden ${
           mobileOpen ? "opacity-100" : "pointer-events-none opacity-0"
         }`}
       />
@@ -271,38 +256,23 @@ export default function Sidebar() {
       <aside
         id="app-sidebar"
         data-pinned={pinned}
-        onMouseEnter={() => setPeek(true)}
-        onMouseLeave={() => setPeek(false)}
-        onFocus={() => setPeek(true)}
-        onBlur={(e) => {
-          if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setPeek(false);
-        }}
-        className={`fixed inset-y-0 left-0 z-50 flex w-[min(20rem,85vw)] flex-col overflow-hidden border-r border-white/10 bg-slate-950 text-slate-300 transition-[transform,visibility,width,box-shadow] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none lg:visible lg:translate-x-0 ${
-          collapsed ? "lg:w-20" : "lg:w-72"
-        } ${
-          expanded && !pinned ? "lg:shadow-2xl lg:shadow-black/60" : "lg:shadow-none"
-        } ${
-          mobileOpen
-            ? "translate-x-0 shadow-2xl shadow-black/60"
-            : "-translate-x-full max-lg:invisible"
+        data-expanded={expanded}
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+        className={`fixed inset-y-0 left-0 z-50 flex flex-col overflow-hidden border-r border-white/10 bg-slate-950 text-slate-300 transition-[width,opacity] duration-200 motion-reduce:transition-none lg:visible lg:opacity-100 ${
+          mobileOpen ? "visible opacity-100" : "pointer-events-none invisible opacity-0 lg:pointer-events-auto"
         }`}
       >
-        {/* Soft brand glow */}
-        {/* <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-x-0 top-0 h-48 bg-gradient-to-b from-violet-600/15 via-cyan-500/5 to-transparent"
-        /> */}
-
         {/* Header: logo only when collapsed */}
-        <div className="relative flex h-16 shrink-0 items-center justify-between gap-3 px-4 lg:h-24 lg:px-[18px]">
-          <Brand size={44} collapsed={collapsed} />
+        <div className={`relative flex h-16 shrink-0 items-center justify-between gap-3 px-4 lg:h-24 lg:px-[18px] ${collapsed ? "lg:h-auto lg:flex-col lg:justify-start lg:gap-3 lg:px-2 lg:py-3" : ""}`}>
+          <Brand size={36} collapsed={collapsed} />
 
           {/* Mobile close */}
           <button
             type="button"
             onClick={() => setMobilePath(null)}
             aria-label="Close navigation menu"
-            className="grid h-9 w-9 place-items-center rounded-lg text-slate-400 outline-none transition hover:bg-white/10 hover:text-white focus-visible:ring-2 focus-visible:ring-cyan-400/70 active:scale-90 lg:hidden"
+            className="grid h-11 w-11 place-items-center rounded-lg text-slate-400 outline-none transition-colors hover:bg-white/10 hover:text-white focus-visible:ring-2 focus-visible:ring-cyan-400/70 lg:hidden"
           >
             <X size={20} />
           </button>
@@ -312,11 +282,9 @@ export default function Sidebar() {
             type="button"
             onClick={togglePin}
             aria-pressed={pinned}
-            aria-label={pinned ? "Collapse sidebar" : "Pin sidebar open"}
-            title={pinned ? "Collapse sidebar" : "Pin sidebar open"}
-            className={`hidden h-9 w-9 shrink-0 place-items-center rounded-lg text-slate-400 outline-none transition-all duration-300 hover:bg-white/10 hover:text-white focus-visible:ring-2 focus-visible:ring-cyan-400/70 active:scale-90 lg:grid ${
-              collapsed ? "lg:pointer-events-none lg:w-0 lg:opacity-0" : ""
-            }`}
+            aria-label={pinned ? "Return sidebar to hover mode" : "Keep sidebar expanded"}
+            title={pinned ? "Return to hover mode" : "Keep expanded"}
+            className={`hidden h-11 w-11 shrink-0 place-items-center rounded-lg text-slate-400 outline-none transition-colors duration-150 hover:bg-white/10 hover:text-white focus-visible:ring-2 focus-visible:ring-cyan-400/70 ${expanded ? "lg:grid" : ""}`}
           >
             {pinned ? <PanelLeftClose size={18} /> : <PanelLeftOpen size={18} />}
           </button>
@@ -346,7 +314,7 @@ export default function Sidebar() {
 
           {collapsed && <div aria-hidden="true" className="mx-3 mb-3 hidden h-px bg-white/10 lg:block" />}
 
-          {links.map((item, index) => {
+          {links.map((item) => {
             const Icon = item.icon;
             const active = isActive(item.href);
             return (
@@ -356,9 +324,8 @@ export default function Sidebar() {
                 title={item.label}
                 aria-current={active ? "page" : undefined}
                 onClick={() => setMobilePath(null)}
-                style={{ transitionDelay: mobileOpen ? `${80 + index * 35}ms` : "0ms" }}
-                className={`group relative flex items-center gap-3 rounded-xl px-[18px] py-3 text-sm font-medium outline-none transition-all duration-300 motion-reduce:transition-none focus-visible:ring-2 focus-visible:ring-cyan-400/70 lg:py-2.5 ${
-                  mobileOpen ? "" : "max-lg:-translate-x-3 max-lg:opacity-0"
+                className={`group relative flex items-center gap-3 rounded-xl px-[18px] py-3 text-sm font-medium outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-cyan-400/70 lg:py-2.5 ${collapsed ? "lg:justify-center lg:px-0" : ""} ${
+                  mobileOpen ? "opacity-100" : "max-lg:opacity-0"
                 } ${
                   active
                     ? "bg-white/10 text-white"
@@ -367,8 +334,8 @@ export default function Sidebar() {
               >
                 <span
                   aria-hidden="true"
-                  className={`absolute left-0 top-1/2 h-6 w-1 -translate-y-1/2 origin-center rounded-r-full bg-cyan-400 transition-transform duration-300 ${
-                    active ? "scale-y-100" : "scale-y-0 group-hover:scale-y-50"
+                  className={`absolute left-0 top-1/2 h-6 w-1 -translate-y-1/2 rounded-r-full bg-cyan-400 transition-opacity duration-150 ${
+                    active ? "opacity-100" : "opacity-0"
                   }`}
                 />
 
@@ -376,11 +343,11 @@ export default function Sidebar() {
                   size={20}
                   strokeWidth={1.9}
                   aria-hidden="true"
-                  className={`shrink-0 transition-all duration-300 group-hover:scale-110 group-active:scale-95 ${
+                  className={`shrink-0 transition-colors duration-150 ${
                     active ? "text-cyan-300" : "group-hover:text-cyan-300"
                   }`}
                 />
-                <span className="truncate whitespace-nowrap transition-all duration-300 group-hover:translate-x-0.5">
+                <span className={`truncate whitespace-nowrap ${collapsed ? "lg:w-0 lg:overflow-hidden lg:opacity-0" : ""}`}>
                   {item.label}
                 </span>
 
@@ -398,9 +365,12 @@ export default function Sidebar() {
         </nav>
 
         {/* Account */}
-        <div className="relative shrink-0 border-t border-white/10 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+        <div className={`relative shrink-0 border-t border-white/10 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] ${collapsed ? "lg:hidden" : ""}`}>
+          <div className={collapsed ? "lg:hidden" : ""}>
+            <ThemeSelector />
+          </div>
           <div
-            className={`flex items-center gap-3 rounded-xl bg-white/5 p-2 ring-1 ring-inset ring-white/5 transition-all duration-300 ${
+            className={`flex items-center gap-3 rounded-xl bg-white/5 p-2 ring-1 ring-inset ring-white/5 ${
               collapsed ? "lg:gap-0" : ""
             }`}
           >
@@ -425,7 +395,7 @@ export default function Sidebar() {
               </span>
             )}
             <span
-              className={`flex min-w-0 flex-1 flex-col whitespace-nowrap transition-all duration-300 ${
+              className={`flex min-w-0 flex-1 flex-col whitespace-nowrap ${
                 collapsed ? "lg:flex-none lg:w-0 lg:overflow-hidden lg:opacity-0" : ""
               }`}
             >
@@ -440,13 +410,13 @@ export default function Sidebar() {
               aria-label="Sign out"
               title="Sign out"
               tabIndex={collapsed ? -1 : 0}
-              className={`group grid h-9 w-9 shrink-0 place-items-center rounded-lg text-slate-400 outline-none transition-all duration-300 hover:bg-red-500/10 hover:text-red-400 focus-visible:ring-2 focus-visible:ring-red-400/70 active:scale-90 ${hideWhenCollapsed}`}
+              className={`group grid h-11 w-11 shrink-0 place-items-center rounded-lg text-slate-400 outline-none transition-colors duration-150 hover:bg-red-500/10 hover:text-red-400 focus-visible:ring-2 focus-visible:ring-red-400/70 ${hideWhenCollapsed}`}
             >
               <LogOut
                 size={18}
                 strokeWidth={1.9}
                 aria-hidden="true"
-                className="transition-transform duration-300 group-hover:translate-x-0.5"
+                className=""
               />
             </button>
           </div>

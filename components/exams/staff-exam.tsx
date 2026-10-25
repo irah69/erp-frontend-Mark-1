@@ -2,6 +2,9 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { ArrowLeft, Check, RefreshCw, Search } from "lucide-react";
+import { Button } from "../ui/button";
+import { PageHeader } from "../ui/page-header";
+import Loader from "../ui/loader";
 import {
   completeAssignedEvaluation,
   getAssignedExamProgress,
@@ -180,14 +183,11 @@ export default function StaffExam() {
   return (
     <main className="min-h-dvh bg-slate-50 px-4 py-6 text-slate-900 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-7xl">
-        <header className="flex flex-wrap items-end justify-between gap-3">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-indigo-700">Staff workspace</p>
-            <h1 className="text-2xl font-semibold">My exam evaluations</h1>
-            <p className="mt-1 text-sm text-slate-600">Only examination subjects assigned to your staff profile are shown.</p>
-          </div>
-          <button className={secondaryButton} onClick={() => void loadAssignments()}><RefreshCw size={15} /> Refresh</button>
-        </header>
+        <PageHeader
+          title="My exam evaluations"
+          description="Only examination subjects assigned to your staff profile are shown."
+          actions={<Button type="button" onClick={() => void loadAssignments()}><RefreshCw size={15} /> Refresh</Button>}
+        />
         {error && <p className="mt-4 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700" role="alert">{error}</p>}
         {notice && <p className="mt-4 rounded-md border border-green-200 bg-green-50 p-3 text-sm text-green-700" role="status">{notice}</p>}
 
@@ -201,7 +201,7 @@ export default function StaffExam() {
               <select className={inputClass} value={subjectFilter} onChange={(event) => setSubjectFilter(event.target.value)}><option value="">All subjects</option>{subjectNames.map((name) => <option key={name}>{name}</option>)}</select>
               <select className={inputClass} value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}><option value="">All evaluation statuses</option>{["pending", "in_progress", "completed"].map((status) => <option key={status}>{status}</option>)}</select>
             </div>
-            {loading ? <p className="p-10 text-center text-sm text-slate-500">Loading assigned exams…</p> : filteredAssignments.length === 0 ? <p className="p-10 text-center text-sm text-slate-500">No assigned examination subjects match these filters.</p> : (
+            {loading ? <Loader title="Loading assigned exams…" subtitle="Retrieving assigned evaluations" size="sm" /> : filteredAssignments.length === 0 ? <p className="p-10 text-center text-sm text-slate-500">No assigned examination subjects match these filters.</p> : (
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[850px] text-left text-sm">
                   <thead className="bg-slate-50 text-xs text-slate-500"><tr><th className="px-4 py-3">Exam / year</th><th className="px-3 py-3">Class / section</th><th className="px-3 py-3">Subject</th><th className="px-3 py-3">Exam date</th><th className="px-3 py-3">Marks</th><th className="px-3 py-3">Evaluation</th><th className="px-3 py-3">Progress</th><th className="px-3 py-3">Action</th></tr></thead>
@@ -211,7 +211,7 @@ export default function StaffExam() {
                     <td className="px-3 py-3 font-medium">{item.subject_name}</td><td className="px-3 py-3">{item.exam_date ?? "—"}</td>
                     <td className="px-3 py-3">{item.max_marks} max · {item.pass_marks} pass</td>
                     <td className="px-3 py-3">{item.evaluation_status}</td><td className="px-3 py-3">{item.marked_count}/{item.student_count}</td>
-                    <td className="px-3 py-3"><button className="text-indigo-700 underline" onClick={() => void openAssignment(item)}>Open</button></td>
+                    <td className="px-3 py-3"><button className="text-foreground underline" onClick={() => void openAssignment(item)}>Open</button></td>
                   </tr>)}</tbody>
                 </table>
               </div>
@@ -221,7 +221,7 @@ export default function StaffExam() {
           <section className={`${panel} mt-5 overflow-hidden`}>
             <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-200 p-4">
               <div>
-                <button className="mb-2 inline-flex items-center gap-1 text-sm text-indigo-700" onClick={() => setSelected(null)}><ArrowLeft size={15} /> Assigned exams</button>
+                <button className="mb-2 inline-flex items-center gap-1 text-sm text-foreground" onClick={() => setSelected(null)}><ArrowLeft size={15} /> Assigned exams</button>
                 <h2 className="text-lg font-semibold">{selected.exam_name} · {selected.subject_name}</h2>
                 <p className="mt-1 text-sm text-slate-600">Grade {selected.grade} · Section {selected.section} · {selected.academic_year} · {selected.exam_date ?? `${selected.start_date} – ${selected.end_date}`}</p>
                 <p className="mt-1 text-xs text-slate-500">Maximum {selected.max_marks} · Passing {selected.pass_marks}</p>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Loader from "./ui/loader";
 
 import {
   getCurrentUser,
@@ -295,19 +296,7 @@ export default function StaffAssignmentDebug() {
   if (loading) {
     return (
       <section className="staff-debug">
-        <div className="staff-debug-card">
-          <h1>Staff Assignment Debug</h1>
-
-          <p>
-            Loading current user, staff record,
-            and assigned classes...
-          </p>
-
-          <div className="staff-debug-loader">
-            Loading...
-          </div>
-        </div>
-
+        <Loader title="Loading staff assignments..." subtitle="Checking your staff record and assigned classes" className="min-h-[60vh]" />
         <style jsx>{debugCss}</style>
       </section>
     );
@@ -1291,21 +1280,6 @@ const debugCss = `
     132,
     255,
     0.05
-  );
-}
-
-.staff-debug-loader {
-  margin-top: 18px;
-
-  padding: 14px;
-
-  border-radius: 8px;
-
-  background: rgba(
-    10,
-    132,
-    255,
-    0.08
   );
 }
 

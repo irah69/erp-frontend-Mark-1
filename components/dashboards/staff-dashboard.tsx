@@ -10,7 +10,8 @@ import {
   UsersRound,
 } from "lucide-react";
 import type { AttendanceStatus } from "../../lib/api";
-import type { CurrentUser } from "../../lib/auth";
+import { PageHeader } from "../ui/page-header";
+import Loader from "../ui/loader";
 import {
   getStaffClassSessions,
   getTeacherAttendanceRoster,
@@ -57,7 +58,7 @@ function getSessionName(session: StaffClassSession) {
   return className || "Assigned class";
 }
 
-export default function StaffDashboard({ user }: { user: CurrentUser }) {
+export default function StaffDashboard() {
   const [date, setDate] = useState(() => localDate(new Date()));
   const [sessions, setSessions] = useState<SessionAttendance[]>([]);
   const [selectedId, setSelectedId] = useState<number | null>(null);
@@ -152,13 +153,10 @@ export default function StaffDashboard({ user }: { user: CurrentUser }) {
   return (
     <main className="staff-dashboard">
       <div className="staff-dashboard-container">
-        <header className="staff-dashboard-header">
-          <div>
-            <p className="staff-eyebrow">Your workspace</p>
-            <h1>Good to see you, {user.username}</h1>
-            <p>Here’s the attendance picture across your classes.</p>
-          </div>
-          <label className="staff-date-picker">
+        <PageHeader
+          title="Attendance"
+          description="Classes assigned to you for the selected date."
+          actions={<label className="staff-date-picker">
             <CalendarDays size={17} aria-hidden="true" />
             <span className="sr-only">Attendance date</span>
             <input
@@ -166,23 +164,23 @@ export default function StaffDashboard({ user }: { user: CurrentUser }) {
               value={date}
               onChange={(event) => setDate(event.target.value)}
             />
-          </label>
-        </header>
+          </label>}
+        />
 
         <section className="staff-metrics" aria-label="Attendance summary">
-          <article className="staff-metric staff-metric-blue">
+          <article className="staff-metric">
             <span className="staff-metric-icon"><UsersRound size={20} /></span>
             <p>Students in sessions</p>
             <strong>{loading ? "—" : dailySummary.totalStudents}</strong>
             <span>Unique students across {sessions.length} sessions</span>
           </article>
-          <article className="staff-metric staff-metric-green">
+          <article className="staff-metric">
             <span className="staff-metric-icon"><Check size={20} /></span>
             <p>Present today</p>
             <strong>{loading ? "—" : dailySummary.presentStudents}</strong>
             <span>Unique students marked present today</span>
           </article>
-          <article className="staff-metric staff-metric-amber">
+          <article className="staff-metric">
             <span className="staff-metric-icon"><Clock3 size={20} /></span>
             <p>Awaiting attendance</p>
             <strong>{loading ? "—" : dailySummary.sessionsAwaitingAttendance}</strong>
@@ -193,7 +191,6 @@ export default function StaffDashboard({ user }: { user: CurrentUser }) {
         <section className="staff-analytics">
           <div className="staff-analytics-heading">
             <div>
-              <p className="staff-eyebrow">Class-by-class</p>
               <h2>Attendance insights</h2>
             </div>
             <Link href="/staff-attendance" className="staff-view-all">
@@ -202,10 +199,7 @@ export default function StaffDashboard({ user }: { user: CurrentUser }) {
           </div>
 
           {loading ? (
-            <div className="staff-empty-state" aria-live="polite">
-              <span className="staff-spinner" />
-              <p>Loading your class attendance…</p>
-            </div>
+            <Loader title="Loading your class attendance…" subtitle="Retrieving today’s assigned sessions" size="sm" className="min-h-[14rem]" />
           ) : error ? (
             <div className="staff-message staff-message-error" role="alert">{error}</div>
           ) : sessions.length === 0 ? (
@@ -221,15 +215,8 @@ export default function StaffDashboard({ user }: { user: CurrentUser }) {
                 {sessions.map(({ session, roster }) => {
                   const marked = roster.students.filter((student) => student.status).length;
                   const total = roster.total_students;
-                  const rate = marked
-                    ? Math.round((
-                      roster.students.filter((student) =>
-                        student.status === "PRESENT" ||
-                        student.status === "LATE" ||
-                        student.status === "EXCUSED"
-                      ).length / marked
-                    ) * 100)
-                    : 0;
+                  const present = roster.students.filter((student) => student.status === "PRESENT").length;
+                  const rate = total ? Math.round((present / total) * 100) : 0;
                   const active = session.session_id === selectedId;
                   return (
                     <button
@@ -376,9 +363,6 @@ export default function StaffDashboard({ user }: { user: CurrentUser }) {
           align-items: center; border-radius: 8px; display: inline-flex;
           height: 38px; justify-content: center; width: 38px;
         }
-        .staff-metric-blue .staff-metric-icon { background: #e9f1ff; color: #3471df; }
-        .staff-metric-green .staff-metric-icon { background: #e8f8ef; color: #23965b; }
-        .staff-metric-amber .staff-metric-icon { background: #fff4df; color: #bd7b18; }
         .staff-metric p { color: #66758b; font-size: 13px; margin: 15px 0 4px; }
         .staff-metric > strong { color: #1b2940; font-size: 28px; letter-spacing: -.04em; }
         .staff-metric > span:last-child { color: #94a0b1; display: block; font-size: 11px; margin-top: 4px; }
@@ -393,7 +377,7 @@ export default function StaffDashboard({ user }: { user: CurrentUser }) {
         .staff-analytics-heading h2 { color: #1a2840; font-size: 20px; letter-spacing: -.03em; margin: 0; }
         .staff-analytics-heading .staff-eyebrow { margin-bottom: 5px; }
         .staff-view-all, .staff-session-action {
-          align-items: center; color: #2865ce; display: inline-flex;
+          align-items: center; color: var(--foreground); display: inline-flex;
           font-size: 13px; font-weight: 650; gap: 7px; text-decoration: none;
         }
         .staff-analytics-grid { display: grid; grid-template-columns: minmax(260px, .8fr) minmax(0, 1.6fr); }
@@ -405,8 +389,8 @@ export default function StaffDashboard({ user }: { user: CurrentUser }) {
           padding: 12px; text-align: left; transition: background .18s ease, border-color .18s ease;
           width: 100%;
         }
-        .staff-session-choice:hover { background: #f8faff; }
-        .staff-session-choice-active { background: #f2f6ff; border-color: #dce7ff; }
+        .staff-session-choice:hover { background: color-mix(in srgb, var(--foreground) 4%, var(--surface)); }
+        .staff-session-choice-active { background: color-mix(in srgb, var(--foreground) 6%, var(--surface)); border-color: var(--border); }
         .staff-session-choice-top, .staff-session-choice-bottom {
           align-items: center; display: flex; justify-content: space-between; gap: 8px;
         }
@@ -439,7 +423,7 @@ export default function StaffDashboard({ user }: { user: CurrentUser }) {
         .staff-roster-heading { background: #f8fafc; color: #8a96a8; font-size: 10px; padding: 10px 13px; }
         .staff-roster-row { border-top: 1px solid #f0f2f6; min-height: 53px; padding: 7px 13px; }
         .staff-student-name { align-items: center; display: flex; gap: 9px; min-width: 0; }
-        .staff-student-avatar { align-items: center; background: #edf2fb; border-radius: 50%; color: #5b72a1; display: inline-flex; flex: 0 0 30px; font-size: 11px; height: 30px; justify-content: center; }
+        .staff-student-avatar { align-items: center; background: color-mix(in srgb, var(--foreground) 8%, var(--surface)); border-radius: 50%; color: var(--foreground); display: inline-flex; flex: 0 0 30px; font-size: 11px; height: 30px; justify-content: center; }
         .staff-student-name > span:last-child { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
         .staff-student-name strong { color: #36465f; font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .staff-student-name small { color: #94a0af; font-size: 10px; }
@@ -456,8 +440,6 @@ export default function StaffDashboard({ user }: { user: CurrentUser }) {
         .staff-empty-state p { font-size: 13px; margin: 5px 0 0; }
         .staff-message { margin: 20px; padding: 14px; }
         .staff-message-error { background: #fff1f1; border-radius: 8px; color: #a83d42; font-size: 13px; }
-        .staff-spinner { animation: staff-spin .8s linear infinite; border: 3px solid #dbeafe; border-radius: 50%; border-top-color: #3471df; height: 30px; width: 30px; }
-        @keyframes staff-spin { to { transform: rotate(360deg); } }
         .sr-only { clip: rect(0, 0, 0, 0); clip-path: inset(50%); height: 1px; overflow: hidden; position: absolute; white-space: nowrap; width: 1px; }
         @media (max-width: 850px) {
           .staff-analytics-grid { grid-template-columns: 1fr; }
@@ -477,7 +459,6 @@ export default function StaffDashboard({ user }: { user: CurrentUser }) {
         }
         @media (prefers-reduced-motion: reduce) {
           .staff-session-choice, .staff-progress-track > span { transition: none; }
-          .staff-spinner { animation-duration: 2s; }
         }
       `}</style>
     </main>

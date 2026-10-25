@@ -2,6 +2,7 @@
 
 import { ReactNode, useEffect, useMemo, useState } from "react";
 import { AlertCircle } from "lucide-react";
+import Loader from "../../components/ui/loader";
 
 import {
   getCurrentUser,
@@ -557,11 +558,7 @@ export default function SchedulePage() {
       <Shell>
         <h1 className="text-2xl font-semibold">My schedule</h1>
 
-        <div className={`${plainPanel} mt-6`}>
-          <p className="px-4 py-10 text-center text-sm text-slate-500" role="status">
-            Loading schedule... Loading your classes and attendance.
-          </p>
-        </div>
+        <Loader title="Loading schedule..." subtitle="Loading your classes and attendance" size="sm" className="mt-6" />
       </Shell>
     );
   }
