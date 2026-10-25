@@ -21,14 +21,19 @@ import {
 
 import type { CurrentUser } from "../../lib/auth";
 import {
-  getSchedulingStudents,
+  getAttendanceRecords,
+  getClassSessions,
+  getSchedulingGrades,
+  getSchedulingSections,
+  getTimetables,
   type AttendanceStatus,
-  type StudentRecord,
+  type AttendanceRecord,
+  type ClassSessionRecord,
+  type GradeOption,
+  type SectionOption,
+  type TimetableRecord,
 } from "../../lib/api";
-import {
-  getStudentReport,
-  type StudentAttendanceReport,
-} from "../../lib/attendanceApi";
+import type { StudentAttendanceReport } from "../../lib/attendanceApi";
 
 /* Statuses that count as "attended" in the trend chart.
    Change this if your backend calculates percentage differently. */
@@ -112,7 +117,7 @@ function ValueTip({ active, payload, suffix = "" }: TipProps) {
 }
 
 export default function StudentDashboard({ user }: { user: CurrentUser }) {
-  const [student, setStudent] = useState<StudentRecord | null>(null);
+  const [student, setStudent] = useState<{ name: string; grade: string | null; section: string | null } | null>(null);
   const [attendance, setAttendance] =
     useState<StudentAttendanceReport | null>(null);
   const [loading, setLoading] = useState(true);
@@ -124,34 +129,100 @@ export default function StudentDashboard({ user }: { user: CurrentUser }) {
         setLoading(true);
         setError(null);
 
-        if (!user.person_id) {
+        if (user.person_id === null) {
           throw new Error("Student account is not linked to a student record.");
         }
 
-        const response = await getSchedulingStudents();
-
-        const students: StudentRecord[] = Array.isArray(response)
-          ? response
-          : response.students ?? [];
-
-        const currentStudent = students.find(
-          (item) => Number(item.id) === Number(user.person_id)
+        const [attendanceResponse, sessions, timetables, grades, sections] = await Promise.all([
+          getAttendanceRecords(),
+          getClassSessions(),
+          getTimetables(),
+          getSchedulingGrades(),
+          getSchedulingSections(),
+        ]);
+        const attendanceRecords: AttendanceRecord[] = attendanceResponse.filter(
+          (record) => Number(record.student_id) === Number(user.person_id)
         );
-
-        if (!currentStudent) {
-          throw new Error("Student record could not be found for this account.");
-        }
-
-        setStudent(currentStudent);
-
-        if (!currentStudent.roll_number) {
-          throw new Error("Student does not have a roll number.");
-        }
-
-        const report = await getStudentReport({
-          rollNumber: currentStudent.roll_number,
+        const academicYear = attendanceRecords
+          .map((record) => record.academic_year)
+          .filter((year): year is string => Boolean(year))
+          .sort((a, b) => b.localeCompare(a))[0] ?? "";
+        const yearAttendance = academicYear
+          ? await getAttendanceRecords(academicYear)
+          : attendanceResponse;
+        const currentYearRecords = yearAttendance.filter(
+          (record) =>
+            Number(record.student_id) === Number(user.person_id) &&
+            (!academicYear || record.academic_year === academicYear)
+        );
+        const sessionsById = new Map<number, ClassSessionRecord>(
+          sessions.map((session) => [session.id, session])
+        );
+        const timetablesById = new Map<number, TimetableRecord>(
+          timetables.map((timetable) => [timetable.id, timetable])
+        );
+        const latestRecord = [...currentYearRecords].sort((a, b) => {
+          const dateA = sessionsById.get(a.session_id)?.session_date ?? "";
+          const dateB = sessionsById.get(b.session_id)?.session_date ?? "";
+          return dateB.localeCompare(dateA) || b.id - a.id;
+        })[0];
+        const latestSession = latestRecord
+          ? sessionsById.get(latestRecord.session_id)
+          : undefined;
+        const latestTimetable = latestSession
+          ? timetablesById.get(latestSession.timetable_id)
+          : undefined;
+        const currentGrade: GradeOption | undefined = latestTimetable?.grade_id
+          ? grades.find((grade) => Number(grade.id) === Number(latestTimetable.grade_id))
+          : undefined;
+        const currentSection: SectionOption | undefined = latestTimetable
+          ? sections.find((section) => Number(section.id) === Number(latestTimetable.section_id))
+          : undefined;
+        const records = currentYearRecords.map((record) => {
+          const session = sessionsById.get(record.session_id);
+          return {
+            attendance_id: record.id,
+            session_id: record.session_id,
+            academic_year: record.academic_year,
+            session_date: session?.session_date ?? "",
+            period_number: null,
+            start_time: "",
+            end_time: "",
+            subject_id: session?.subject_id ?? 0,
+            staff_id: session?.staff_id ?? 0,
+            status: record.status,
+            remarks: record.remarks ?? null,
+          };
         });
+        const present = records.filter((record) => record.status === "PRESENT").length;
+        const absent = records.filter((record) => record.status === "ABSENT").length;
+        const late = records.filter((record) => record.status === "LATE").length;
+        const excused = records.filter((record) => record.status === "EXCUSED").length;
+        const attended = present + late;
+        const report: StudentAttendanceReport = {
+          academic_year: academicYear,
+          student: {
+            id: user.person_id,
+            name: user.username,
+            roll_number: null,
+            grade: null,
+            section: null,
+          },
+          total_classes: records.length,
+          attended_classes: attended,
+          present,
+          absent,
+          late,
+          excused,
+          percentage: records.length ? Math.round((attended / records.length) * 1000) / 10 : 0,
+          records,
+        };
 
+        setStudent({
+          name: user.username,
+          grade: currentGrade?.grade ?? null,
+          section: currentSection?.section ?? null,
+        });
         setAttendance(report);
       } catch (err) {
         setError(
@@ -163,7 +234,7 @@ export default function StudentDashboard({ user }: { user: CurrentUser }) {
     }
 
     loadDashboard();
-  }, [user.person_id]);
+  }, [user.person_id, user.username]);
 
   /* Cumulative attendance percentage, one point per class day. */
   const trendData = useMemo(() => {

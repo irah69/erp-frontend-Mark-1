@@ -5,11 +5,16 @@ import { AlertCircle } from "lucide-react";
 
 import {
   getCurrentUser,
-  getSchedulingStudents,
   getSchedulingGrades,
   getSchedulingSections,
   getSchedulingSubjects,
   getSchedulingStaff,
+  getAttendanceRecords,
+  getClassSessions,
+  getTimetables,
+  type AttendanceRecord,
+  type ClassSessionRecord,
+  type TimetableRecord,
   type StudentRecord,
   type SubjectOption,
   type StaffOption,
@@ -18,7 +23,6 @@ import {
 
 import {
   getClassDaySessions,
-  getStudentReport,
   type ClassDaySession,
   type StudentAttendanceReport,
 } from "../../lib/attendanceApi";
@@ -182,9 +186,8 @@ function Shell({ children }: { children: ReactNode }) {
 export default function SchedulePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [attendanceError, setAttendanceError] = useState<string | null>(null);
   const [student, setStudent] = useState<StudentRecord | null>(null);
-  const [subjects, setSubjects] = useState<SubjectOption[]>([]);
-  const [staff, setStaff] = useState<StaffOption[]>([]);
   const [schedule, setSchedule] = useState<ScheduleItem[]>([]);
   const [attendanceReport, setAttendanceReport] = useState<StudentAttendanceReport | null>(null);
 
@@ -218,9 +221,6 @@ export default function SchedulePage() {
           getSchedulingStaff(),
         ]);
 
-        setSubjects(subjectsResponse);
-        setStaff(staffResponse);
-
         /* 3. ROLE-BASED SCHEDULE SETUP */
 
         type ClassTarget = {
@@ -233,76 +233,117 @@ export default function SchedulePage() {
         let classTargets: ClassTarget[] = [];
 
         let matchedStudent: StudentRecord | null = null;
+        let studentAttendanceReport: StudentAttendanceReport | null = null;
 
         /* STUDENT (role_id = 3) */
 
         if (roleId === 3) {
-          const studentsResponse = await getSchedulingStudents();
+          const [attendanceRows, classSessions, timetables] = await Promise.all([
+            getAttendanceRecords(),
+            getClassSessions(),
+            getTimetables(),
+          ]);
+          const ownAttendance: AttendanceRecord[] = attendanceRows.filter(
+            (record) => Number(record.student_id) === personId
+          );
+          const year = ownAttendance
+            .map((record) => record.academic_year)
+            .filter((value): value is string => Boolean(value))
+            .sort((a, b) => b.localeCompare(a))[0] ?? "";
+          const currentYearAttendance = year
+            ? ownAttendance.filter((record) => record.academic_year === year)
+            : ownAttendance;
+          const sessionById = new Map<number, ClassSessionRecord>(
+            classSessions.map((session) => [session.id, session])
+          );
+          const timetableById = new Map<number, TimetableRecord>(
+            timetables.map((timetable) => [timetable.id, timetable])
+          );
+          const latestClassSession = currentYearAttendance
+            .map((record) => sessionById.get(record.session_id))
+            .filter((session): session is ClassSessionRecord => Boolean(session))
+            .sort((a, b) => b.session_date.localeCompare(a.session_date))[0];
+          const currentTimetable = latestClassSession
+            ? timetableById.get(latestClassSession.timetable_id)
+            : undefined;
+          const matchedGrade = currentTimetable?.grade_id
+            ? gradesResponse.find(
+                (grade) => Number(grade.id) === Number(currentTimetable.grade_id)
+              )
+            : undefined;
+          const matchedSection = currentTimetable
+            ? sectionsResponse.find(
+                (section) => Number(section.id) === Number(currentTimetable.section_id)
+              )
+            : undefined;
 
-          const students = Array.isArray(studentsResponse)
-            ? studentsResponse
-            : studentsResponse.students ?? [];
-
-          matchedStudent = students.find((item) => Number(item.id) === personId) ?? null;
-
-          if (!matchedStudent) {
-            throw new Error(`Student record not found for person_id=${personId}`);
+          if (matchedGrade && matchedSection) {
+            classTargets = [{
+              gradeId: matchedGrade.id,
+              sectionId: matchedSection.id,
+              gradeName: matchedGrade.grade,
+              sectionName: matchedSection.section,
+            }];
+          } else {
+            setAttendanceError(
+              "Your class schedule cannot be identified yet. It will appear after attendance has been recorded for your class."
+            );
           }
 
+          matchedStudent = {
+            id: personId,
+            name: currentUser.username,
+            roll_number: "",
+            grade: matchedGrade?.grade ?? null,
+            section: matchedSection?.section ?? null,
+            grade_id: matchedGrade?.id ?? null,
+            section_id: matchedSection?.id ?? null,
+          };
           setStudent(matchedStudent);
 
-          if (!matchedStudent.grade || !matchedStudent.section) {
-            throw new Error("Student grade or section is not assigned.");
-          }
-
-          /* FIND STUDENT GRADE */
-
-          const matchedGrade = gradesResponse.find(
-            (grade) =>
-              String(grade.grade).trim().toLowerCase() ===
-              String(matchedStudent?.grade).trim().toLowerCase()
-          );
-
-          if (!matchedGrade) {
-            throw new Error(`Grade "${matchedStudent.grade}" was not found.`);
-          }
-
-          /* FIND STUDENT SECTION */
-
-          const matchedSection = sectionsResponse.find(
-            (section) =>
-              String(section.section).trim().toLowerCase() ===
-              String(matchedStudent?.section).trim().toLowerCase()
-          );
-
-          if (!matchedSection) {
-            throw new Error(`Section "${matchedStudent.section}" was not found.`);
-          }
-
-          classTargets = [
-            {
-              gradeId: Number(matchedGrade.id),
-              sectionId: Number(matchedSection.id),
-              gradeName: String(matchedStudent.grade),
-              sectionName: String(matchedStudent.section),
+          const reportRecords = currentYearAttendance.map((record) => {
+            const session = sessionById.get(record.session_id);
+            const timetable = session ? timetableById.get(session.timetable_id) : undefined;
+            return {
+              attendance_id: record.id,
+              session_id: record.session_id,
+              academic_year: record.academic_year,
+              session_date: session?.session_date ?? "",
+              period_number: timetable?.period_number ?? null,
+              start_time: timetable?.start_time ?? "",
+              end_time: timetable?.end_time ?? "",
+              subject_id: session?.subject_id ?? 0,
+              staff_id: session?.staff_id ?? 0,
+              status: record.status,
+              remarks: record.remarks ?? null,
+            };
+          });
+          const present = reportRecords.filter((record) => record.status === "PRESENT").length;
+          const absent = reportRecords.filter((record) => record.status === "ABSENT").length;
+          const late = reportRecords.filter((record) => record.status === "LATE").length;
+          const excused = reportRecords.filter((record) => record.status === "EXCUSED").length;
+          const attended = present + late;
+          studentAttendanceReport = {
+            academic_year: year,
+            student: {
+              id: personId,
+              name: currentUser.username,
+              roll_number: null,
+              grade: matchedGrade?.grade ?? null,
+              section: matchedSection?.section ?? null,
             },
-          ];
-
-          /* STUDENT ATTENDANCE */
-
-          try {
-            const studentAttendance = await getStudentReport({
-              rollNumber: matchedStudent.roll_number,
-              gradeId: Number(matchedGrade.id),
-              sectionId: Number(matchedSection.id),
-            });
-
-            setAttendanceReport(studentAttendance);
-          } catch (attendanceError) {
-            console.error("Attendance report failed:", attendanceError);
-
-            setAttendanceReport(null);
-          }
+            total_classes: reportRecords.length,
+            attended_classes: attended,
+            present,
+            absent,
+            late,
+            excused,
+            percentage: reportRecords.length
+              ? Math.round((attended / reportRecords.length) * 1000) / 10
+              : 0,
+            records: reportRecords,
+          };
+          setAttendanceReport(studentAttendanceReport);
         }
 
         /* STAFF (role_id = 2) */
@@ -418,8 +459,8 @@ export default function SchedulePage() {
 
         const attendanceMap = new Map<number, AttendanceStatus>();
 
-        if (attendanceReport) {
-          for (const record of attendanceReport.records) {
+        if (studentAttendanceReport) {
+          for (const record of studentAttendanceReport.records) {
             attendanceMap.set(Number(record.session_id), record.status);
           }
         }
@@ -581,12 +622,25 @@ export default function SchedulePage() {
         )}
       </div>
 
+      {attendanceError && (
+        <p className="mt-4 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800" role="alert">
+          {attendanceError}
+        </p>
+      )}
+
       <div className="mt-6 space-y-4">
         {/* Attendance summary */}
         {attendanceReport && (
           <section className={`${plainPanel} ${accentBorder} p-4 sm:p-5`}>
             <div className="flex items-start justify-between gap-4">
-              <h2 className="text-base font-semibold">Attendance overview</h2>
+              <h2 className="text-base font-semibold">
+                Attendance overview
+                {attendanceReport.academic_year && (
+                  <span className="ml-2 text-sm font-normal text-slate-500">
+                    · {attendanceReport.academic_year}
+                  </span>
+                )}
+              </h2>
               <p className="text-3xl font-semibold tabular-nums">{attendanceReport.percentage}%</p>
             </div>
 

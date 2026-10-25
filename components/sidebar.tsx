@@ -40,6 +40,7 @@ const navigationItems: NavigationItem[] = [
   { href: "/academic", label: "Grades", icon: BookOpen, roles: [1] },
   { href: "/scheduling", label: "Scheduling", icon: CalendarRange, roles: [1] },
   { href: "/attendance", label: "Attendance", icon: ClipboardCheck, roles: [1] },
+  { href: "/student-attendance", label: "My attendance", icon: ClipboardCheck, roles: [3] },
   { href: "/users", label: "Users", icon: UsersRound, roles: [1] },
   { href: "/schedule", label: "My schedule", icon: CalendarDays, roles: [2, 3] },
   { href: "/my-class", label: "My class", icon: PanelsTopLeft, roles: [2] },

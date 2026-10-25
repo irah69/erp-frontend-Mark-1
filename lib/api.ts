@@ -1,6 +1,6 @@
 const configuredBackendUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL?.trim();
 
-export const API_BASE_URL = "https://erp-backend-1-y2er.onrender.com"
+export const API_BASE_URL = "http://127.0.0.1:8000"
 
 export type ApiRequestError = Error & {
   status?: number;
@@ -470,6 +470,8 @@ export type ClassSessionRecord = {
 
   session_date: string;
 
+  academic_year?: string | null;
+
   is_conducted: boolean;
 
   remarks?: string | null;
@@ -491,6 +493,8 @@ export type AttendanceRecord = {
   session_id: number;
 
   student_id: number;
+
+  academic_year?: string | null;
 
   status: AttendanceStatus;
 
@@ -773,10 +777,13 @@ export function removeClassSession(
    ATTENDANCE ENDPOINTS
    ========================================================= */
 
-export function getAttendanceRecords() {
+export function getAttendanceRecords(academicYear?: string) {
+  const query = academicYear
+    ? `?${new URLSearchParams({ academic_year: academicYear }).toString()}`
+    : "";
   return apiRequest<
     AttendanceRecord[]
-  >("/api/attendance");
+  >(`/api/attendance${query}`, { cache: "no-store" });
 }
 
 export function updateAttendanceRecord(

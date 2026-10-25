@@ -15,6 +15,8 @@ import {
   saveBulkAttendance,
   updateAttendanceRecord,
 } from "../../lib/api";
+import { checkSession, type CurrentUser } from "../../lib/auth";
+import StudentAttendance from "../../components/dashboards/student-attendance";
 import {
   ClassDaySession,
   ClassRoster,
@@ -169,6 +171,55 @@ const stickySaveBar =
 /* ---------- page ---------- */
 
 export default function AttendancePage() {
+  const [user, setUser] = useState<CurrentUser | null>(null);
+  const [sessionLoading, setSessionLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    void checkSession().then((currentUser) => {
+      if (!cancelled) {
+        setUser(currentUser);
+        setSessionLoading(false);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  if (sessionLoading) {
+    return (
+      <section className="min-h-dvh bg-slate-50 px-4 py-10 text-center text-sm text-slate-500">
+        Loading attendance...
+      </section>
+    );
+  }
+
+  if (!user) {
+    return (
+      <section className="min-h-dvh bg-slate-50 px-4 py-10 text-center">
+        <p className="text-sm text-red-700" role="alert">
+          Please sign in to access attendance.
+        </p>
+      </section>
+    );
+  }
+
+  if (user.role_id === 3) return <StudentAttendance user={user} />;
+  if (user.role_id !== 1) {
+    return (
+      <section className="min-h-dvh bg-slate-50 px-4 py-10 text-center">
+        <p className="text-sm text-red-700" role="alert">
+          You do not have permission to access this attendance page.
+        </p>
+      </section>
+    );
+  }
+
+  return <AttendanceManagementPage />;
+}
+
+function AttendanceManagementPage() {
   const [grades, setGrades] = useState<GradeOption[]>([]);
   const [sections, setSections] = useState<SectionOption[]>([]);
   const [staff, setStaff] = useState<StaffOption[]>([]);
@@ -223,7 +274,7 @@ export default function AttendancePage() {
 
   const selectedPeriod = daySessions.find((item) => String(item.session_id) === selectedSessionId) ?? null;
   const readyCount = daySessions.filter((item) => item.ready).length;
-  const students = roster?.students ?? [];
+  const students = useMemo(() => roster?.students ?? [], [roster]);
 
   const counts = useMemo(() => {
     const result: Record<AttendanceStatus, number> = { PRESENT: 0, ABSENT: 0, LATE: 0, EXCUSED: 0 };

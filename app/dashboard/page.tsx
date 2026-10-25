@@ -28,7 +28,7 @@ export default function DashboardPage() {
   if (loading) return <section className="page-section"><p className="state-text">Loading dashboard...</p></section>;
   if (!user) return <section className="page-section"><p className="alert error">Please sign in to access your dashboard.</p></section>;
 
-  switch (roleNames[user.role_id]) {
+  switch (roleNames[Number(user.role_id)]) {
     case "admin": return <AdminDashboard user={user} />;
     case "staff": return <StaffDashboard user={user} />;
     case "student": return <StudentDashboard user={user} />;

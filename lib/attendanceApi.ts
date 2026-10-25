@@ -22,6 +22,7 @@ export type ClassDaySession = {
 export type ClassDaySessions = {
   grade_id: number;
   section_id: number;
+  academic_year?: string | null;
   session_date: string;
   day_of_week: number;
   sessions: ClassDaySession[];
@@ -39,6 +40,7 @@ export type RosterStudent = {
 export type ClassRoster = {
   grade_id: number;
   section_id: number;
+  academic_year?: string | null;
   grade: string | null;
   section: string | null;
   session_date: string;
@@ -211,6 +213,7 @@ export function getClassRoster(args: {
 export type StudentAttendanceItem = {
   attendance_id: number;
   session_id: number;
+  academic_year?: string | null;
   session_date: string;
   period_number: number | null;
   start_time: string;
@@ -222,6 +225,7 @@ export type StudentAttendanceItem = {
 };
 
 export type StudentAttendanceReport = {
+  academic_year: string;
   student: {
     id: number;
     name: string | null;
@@ -243,6 +247,7 @@ export function getStudentReport(args: {
   rollNumber: string;
   gradeId?: number;
   sectionId?: number;
+  academicYear?: string;
 }) {
   return getJson<StudentAttendanceReport>(
     "/api/attendance/student-report",
@@ -250,6 +255,7 @@ export function getStudentReport(args: {
       roll_number: args.rollNumber,
       grade_id: args.gradeId,
       section_id: args.sectionId,
+      academic_year: args.academicYear,
     }
   );
 }
