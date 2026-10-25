@@ -1,8 +1,8 @@
 "use client";
 
 import Image from "next/image";
-import { FormEvent, useEffect, useRef, useState } from "react";
-import { ImagePlus, Upload } from "lucide-react";
+import { FormEvent, PointerEvent as ReactPointerEvent, useEffect, useRef, useState } from "react";
+import { ImagePlus, Upload, X, ZoomIn } from "lucide-react";
 import {
   getUserProfileImage,
   type UserProfile,
@@ -136,8 +136,26 @@ export default function ProfileEditor({
   } | null>(null);
   const [imageError, setImageError] = useState("");
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
+  const [cropSource, setCropSource] = useState<File | null>(null);
+  const [cropPreviewUrl, setCropPreviewUrl] = useState<string | null>(null);
+  const [cropZoom, setCropZoom] = useState(1);
+  const [cropOffset, setCropOffset] = useState({ x: 0, y: 0 });
+  const [cropSaving, setCropSaving] = useState(false);
+  const cropAreaRef = useRef<HTMLDivElement>(null);
+  const cropImageRef = useRef<HTMLImageElement>(null);
+  const dragRef = useRef<{ x: number; y: number; offsetX: number; offsetY: number } | null>(null);
   const [uploadingImage, setUploadingImage] = useState(false);
   const imageInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!cropSource) {
+      setCropPreviewUrl(null);
+      return;
+    }
+    const url = URL.createObjectURL(cropSource);
+    setCropPreviewUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [cropSource]);
 
   useEffect(() => {
     let cancelled = false;
@@ -264,8 +282,65 @@ export default function ProfileEditor({
       return;
     }
 
-    setSelectedImage(file);
+    setCropSource(file);
+    setCropZoom(1);
+    setCropOffset({ x: 0, y: 0 });
     setImageError("");
+  }
+
+  function startCropDrag(event: ReactPointerEvent<HTMLDivElement>) {
+    if (!cropAreaRef.current) return;
+    event.currentTarget.setPointerCapture(event.pointerId);
+    dragRef.current = {
+      x: event.clientX,
+      y: event.clientY,
+      offsetX: cropOffset.x,
+      offsetY: cropOffset.y,
+    };
+  }
+
+  function moveCropDrag(event: ReactPointerEvent<HTMLDivElement>) {
+    if (!dragRef.current || !cropAreaRef.current || !cropImageRef.current) return;
+    const bounds = cropAreaRef.current.getBoundingClientRect();
+    const image = cropImageRef.current;
+    const scale = Math.max(bounds.width / image.naturalWidth, bounds.height / image.naturalHeight) * cropZoom;
+    const maxX = Math.max(0, (image.naturalWidth * scale - bounds.width) / 2);
+    const maxY = Math.max(0, (image.naturalHeight * scale - bounds.height) / 2);
+    setCropOffset({
+      x: Math.max(-maxX, Math.min(maxX, dragRef.current.offsetX + event.clientX - dragRef.current.x)),
+      y: Math.max(-maxY, Math.min(maxY, dragRef.current.offsetY + event.clientY - dragRef.current.y)),
+    });
+  }
+
+  async function confirmCrop() {
+    if (!cropSource || !cropImageRef.current || !cropAreaRef.current) return;
+    setCropSaving(true);
+    try {
+      const image = cropImageRef.current;
+      const bounds = cropAreaRef.current.getBoundingClientRect();
+      const baseScale = Math.max(bounds.width / image.naturalWidth, bounds.height / image.naturalHeight);
+      const scale = baseScale * cropZoom;
+      const side = Math.min(image.naturalWidth, image.naturalHeight) / cropZoom;
+      const sourceX = Math.max(0, Math.min(image.naturalWidth - side, (image.naturalWidth - side) / 2 - cropOffset.x / scale));
+      const sourceY = Math.max(0, Math.min(image.naturalHeight - side, (image.naturalHeight - side) / 2 - cropOffset.y / scale));
+      const canvas = document.createElement("canvas");
+      canvas.width = 512;
+      canvas.height = 512;
+      const context = canvas.getContext("2d");
+      if (!context) throw new Error("Your browser could not prepare the cropped image.");
+      context.drawImage(image, sourceX, sourceY, side, side, 0, 0, canvas.width, canvas.height);
+      const blob = await new Promise<Blob>((resolve, reject) =>
+        canvas.toBlob((value) => value ? resolve(value) : reject(new Error("Unable to crop this image.")), "image/jpeg", 0.92)
+      );
+      const name = cropSource.name.replace(/\.[^.]+$/, "") || "profile-photo";
+      setSelectedImage(new File([blob], `${name}-cropped.jpg`, { type: "image/jpeg", lastModified: Date.now() }));
+      setCropSource(null);
+      if (imageInputRef.current) imageInputRef.current.value = "";
+    } catch (cropError) {
+      setImageError(cropError instanceof Error ? cropError.message : "Unable to crop this image.");
+    } finally {
+      setCropSaving(false);
+    }
   }
 
   async function uploadImage() {
@@ -315,6 +390,21 @@ export default function ProfileEditor({
   return (
     <main className="min-h-dvh bg-slate-50 px-4 py-7 text-slate-900 sm:px-6 sm:py-10">
       <div className="mx-auto w-full max-w-5xl">
+        {cropSource && cropPreviewUrl && (
+          <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/65 p-4" role="dialog" aria-modal="true" aria-labelledby="profile-crop-title">
+            <section className="w-full max-w-md rounded-2xl bg-white p-5 shadow-2xl sm:p-6">
+              <header className="mb-4 flex items-start justify-between gap-4">
+                <div><h2 id="profile-crop-title" className="text-lg font-semibold text-slate-900">Adjust your photo</h2><p className="mt-1 text-sm text-slate-500">Drag to reposition, then zoom for a clean square crop.</p></div>
+                <button type="button" onClick={() => { setCropSource(null); if (imageInputRef.current) imageInputRef.current.value = ""; }} className="rounded-full p-2 text-slate-500 hover:bg-slate-100" aria-label="Cancel photo crop"><X size={18} /></button>
+              </header>
+              <div ref={cropAreaRef} onPointerDown={startCropDrag} onPointerMove={moveCropDrag} onPointerUp={() => { dragRef.current = null; }} onPointerCancel={() => { dragRef.current = null; }} className="relative mx-auto aspect-square w-full max-w-[320px] touch-none cursor-grab overflow-hidden rounded-full bg-slate-100 active:cursor-grabbing">
+                <img ref={cropImageRef} src={cropPreviewUrl} alt="Photo crop preview" draggable={false} className="pointer-events-none absolute inset-0 size-full select-none object-cover" style={{ transform: `translate(${cropOffset.x}px, ${cropOffset.y}px) scale(${cropZoom})` }} />
+              </div>
+              <label className="mt-5 flex items-center gap-3 text-sm text-slate-700"><ZoomIn size={17} className="shrink-0 text-indigo-600" /><span className="sr-only">Zoom photo</span><input type="range" min="1" max="3" step="0.01" value={cropZoom} onChange={(event) => setCropZoom(Number(event.target.value))} className="w-full accent-indigo-600" /><span className="w-10 text-right tabular-nums">{cropZoom.toFixed(1)}×</span></label>
+              <footer className="mt-6 flex justify-end gap-2"><button type="button" onClick={() => { setCropSource(null); if (imageInputRef.current) imageInputRef.current.value = ""; }} className="rounded-md border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">Cancel</button><button type="button" onClick={() => void confirmCrop()} disabled={cropSaving} className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-60">{cropSaving ? "Preparing…" : "Use this photo"}</button></footer>
+            </section>
+          </div>
+        )}
         <header className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <p className="mb-1 text-xs font-bold uppercase tracking-[0.12em] text-indigo-700">Account</p>

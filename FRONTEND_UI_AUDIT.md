@@ -66,8 +66,7 @@ The supplied component uses `motion/react`; `motion` was missing and is now inst
 
 ## Verification record
 
-- The local app rendered the shared dashboard loader, then redirected to `/login` because no signed-in session was available. This confirms the runtime import/render path; it did not expose an authenticated sidebar for click testing.
-- Sidebar breakpoint rules and responsive overflow patterns were reviewed in source. Live viewport overrides were unavailable in the connected browser, so 320, 375, 768, 1024, and 1440px visual checks were not performed.
+- An authenticated local admin session rendered the dashboard at the connected browser's 854px viewport. The KPI and chart grid was visually checked and adjusted to a balanced two-column tablet layout. Dedicated 320, 375, 768, 1024, and 1440px viewport sweeps were not available.
 - Lint, type-check, and production build results are recorded in the task completion report.
 - The package does not define a test script or test suite.
 - Fixed the theme pre-hydration mismatch reported in the console by marking the root `<html>` with `suppressHydrationWarning`; the early theme initializer remains in place to prevent a flash.
@@ -75,4 +74,5 @@ The supplied component uses `motion/react`; `motion` was missing and is now inst
 - Production build was attempted in an isolated output directory to avoid the running dev server's `.next` files. It could not complete because Next.js could not fetch the existing Geist fonts from `fonts.googleapis.com` in this environment.
 - The admin overview now follows the provided 21.dev reference's compact bento-card hierarchy, filters, and restrained chart treatment while using school-specific data from existing APIs. It includes student/staff totals, recorded attendance, enabled accounts by role, exam averages/trends, subject/class comparisons, enrollment trend, and existing administration shortcuts.
 - No fee or login-activity metrics are shown because the available API has no fee or last-login/activity endpoint. Attendance rates use recorded rows (present + late divided by all recorded statuses), and exam averages use entered non-absent marks. Backend source code is not included in this frontend workspace, so aggregations use existing API responses; no new backend analytics endpoint was added.
-- Dashboard component lint and the full repository lint passed; `npx tsc --noEmit` passed. Browser rendering and production build were not verified in this run.
+- The deployed API base URL now honors `NEXT_PUBLIC_BACKEND_API_URL`; production builds ignore loopback/private-network values and use the public backend fallback, preventing an accidental deployed request to local services.
+- The full repository lint, `npx tsc --noEmit`, and `git diff --check` passed. The production build remains blocked by the environment's inability to fetch the existing Geist fonts.

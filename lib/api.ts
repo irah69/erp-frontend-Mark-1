@@ -1,6 +1,25 @@
 const configuredBackendUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL?.trim();
+const fallbackBackendUrl = process.env.NODE_ENV === "development"
+  ? "http://127.0.0.1:8000"
+  : "https://erp-backend-1-y2er.onrender.com";
 
-export const API_BASE_URL ="https://erp-backend-1-y2er.onrender.com"
+function isPrivateNetworkUrl(value: string) {
+  try {
+    const hostname = new URL(value).hostname.toLowerCase();
+    return hostname === "localhost" || hostname.endsWith(".localhost") || hostname === "::1" ||
+      /^127\./.test(hostname) || /^10\./.test(hostname) || /^192\.168\./.test(hostname) ||
+      /^172\.(1[6-9]|2\d|3[01])\./.test(hostname);
+  } catch {
+    return false;
+  }
+}
+
+const selectedBackendUrl = configuredBackendUrl &&
+  !(process.env.NODE_ENV === "production" && isPrivateNetworkUrl(configuredBackendUrl))
+  ? configuredBackendUrl
+  : fallbackBackendUrl;
+
+export const API_BASE_URL = selectedBackendUrl.replace(/\/+$/, "");
 
 
 export type ApiRequestError = Error & {
