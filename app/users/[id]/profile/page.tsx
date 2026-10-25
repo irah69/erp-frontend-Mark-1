@@ -74,6 +74,7 @@ export default function AdminUserProfilePage() {
       initialProfile={profile}
       title={profile.full_name?.trim() || `User #${profile.user_id}`}
       subtitle={`Student profile · User #${profile.user_id}`}
+      canEdit
       canUploadImage
       onSave={(update) => updateUserProfile(profile.user_id, update)}
       onUploadImage={async (file) => {

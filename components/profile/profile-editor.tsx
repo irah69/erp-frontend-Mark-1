@@ -20,6 +20,7 @@ type ProfileEditorProps = {
   initialProfile: UserProfile;
   title?: string;
   subtitle?: string;
+  canEdit: boolean;
   canUploadImage: boolean;
   onSave: (update: UserProfileUpdate) => Promise<UserProfile>;
   onUploadImage: (file: File) => Promise<UserProfile>;
@@ -116,6 +117,7 @@ export default function ProfileEditor({
   initialProfile,
   title = "My profile",
   subtitle,
+  canEdit,
   canUploadImage,
   onSave,
   onUploadImage,
@@ -416,7 +418,7 @@ export default function ProfileEditor({
             <h1 className="text-3xl font-bold tracking-tight">{title}</h1>
             {subtitle && <p className="mt-1 text-sm text-slate-500">{subtitle}</p>}
           </div>
-          {!editing && (
+          {!editing && canEdit && (
             <button
               type="button"
               onClick={beginEditing}
@@ -448,7 +450,7 @@ export default function ProfileEditor({
               <p className="text-sm text-slate-500">User ID: {profile.user_id}</p>
             </div>
           </div>
-          {editing && canUploadImage && (
+          {editing && canEdit && canUploadImage && (
             <div className="flex w-full flex-col gap-2 sm:ml-auto sm:max-w-sm">
               <label className="text-sm font-semibold text-slate-700" htmlFor="profile-image-file">
                 Profile image

@@ -74,6 +74,7 @@ export default function ProfilePage() {
       initialProfile={profile}
       title="My profile"
       subtitle={`${roleNames[user.role_id] ?? "Account"} · ${user.username} · ${user.email}`}
+      canEdit={user.role_id === 1 || user.role_id === 2}
       canUploadImage={user.role_id === 1 || user.role_id === 2}
       onSave={updateMyUserProfile}
       onUploadImage={async (file) => {
