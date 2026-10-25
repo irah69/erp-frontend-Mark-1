@@ -22,6 +22,7 @@ import {
   getExamResults,
   listExams,
   listExamSubjects,
+  overridePublishExam,
   publishExam,
   scheduleExam,
   syncExamRoster,
@@ -93,6 +94,7 @@ export default function AdminExam() {
   const [selected, setSelected] = useState<ExamRecord | null>(null);
   const [subjects, setSubjects] = useState<ExamSubject[]>([]);
   const [results, setResults] = useState<ExamResultStudent[]>([]);
+  const [reviewSubjectId, setReviewSubjectId] = useState("");
   const [form, setForm] = useState<ExamForm>(emptyExamForm);
   const [subjectForm, setSubjectForm] = useState<SubjectForm>(emptySubjectForm);
   const [subjectDrafts, setSubjectDrafts] = useState<Record<number, SubjectForm>>({});
@@ -123,6 +125,7 @@ export default function AdminExam() {
       ]);
       setSubjects(subjectRows);
       setResults(resultRows.students ?? []);
+      setReviewSubjectId("");
       setSubjectDrafts(Object.fromEntries(subjectRows.map((subject) => [
         subject.id,
         {
@@ -272,12 +275,13 @@ export default function AdminExam() {
     if (!selected) return;
     const max = Number(subjectForm.max_marks);
     const pass = Number(subjectForm.pass_marks);
-    if (!subjectForm.subject_id || !subjectForm.evaluator_staff_id || !Number.isFinite(max) || max <= 0 || pass < 0 || pass > max) {
+    if (!subjectForm.subject_id || !activeStaff.some((member) => String(member.id) === subjectForm.evaluator_staff_id) || !Number.isFinite(max) || max <= 0 || pass < 0 || pass > max) {
       setError("Select a subject and evaluator, and ensure passing marks are between zero and maximum marks.");
       return;
     }
     setBusy(true);
     setError("");
+    setNotice("");
     try {
       await addExamSubject(selected.id, {
         subject_id: Number(subjectForm.subject_id),
@@ -307,6 +311,7 @@ export default function AdminExam() {
     }
     setBusy(true);
     setError("");
+    setNotice("");
     try {
       await updateExamSubject(
         selected.id,
@@ -323,7 +328,13 @@ export default function AdminExam() {
       await loadDetail(selected);
       setNotice(`Settings saved for ${subject.subject_name}.`);
     } catch (saveError) {
-      setError(messageOf(saveError, "Unable to update subject settings."));
+      const message = messageOf(saveError, "Unable to update subject settings.");
+      const selectedStaff = staff.find((member) => member.id === Number(draft.evaluator_staff_id));
+      setError(
+        message.toLowerCase().includes("active evaluating staff member")
+          ? `${message} Ensure ${selectedStaff?.name ?? "the selected staff member"} is active and has an active Staff user account linked to their staff profile.`
+          : message
+      );
     } finally {
       setBusy(false);
     }
@@ -359,6 +370,10 @@ export default function AdminExam() {
   }
 
   const selectedGrade = grades.find((grade) => String(grade.id) === form.grade_id);
+  const activeStaff = staff.filter((member) => member.status?.toLowerCase() === "active");
+  const reviewSubjects = reviewSubjectId
+    ? subjects.filter((subject) => String(subject.subject_id) === reviewSubjectId)
+    : subjects;
   const sectionLabel = (exam: ExamRecord) =>
     sections.find((section) => section.id === exam.section_id)?.section ?? exam.section;
 
@@ -462,11 +477,15 @@ export default function AdminExam() {
                 {selected.status === "draft" && <button className={secondaryButton} disabled={busy} onClick={() => void runAction(() => syncExamRoster(selected.id), "Draft roster synchronized.")}><RefreshCw size={15} /> Sync roster</button>}
                 {selected.status === "draft" && <button className={primaryButton} disabled={busy || subjects.length === 0} onClick={() => void runAction(() => scheduleExam(selected.id), "Examination scheduled.", "Schedule this exam? Its configuration will be locked.")}>Schedule exam</button>}
                 {selected.status === "completed" && <button className={primaryButton} disabled={busy} onClick={() => void runAction(() => publishExam(selected.id), "Results published.", "Publish these results for students?")}>Publish results</button>}
+                {selected.status === "scheduled" && <button className={primaryButton} disabled={busy || !subjects.some((subject) => subject.marked_count > 0)} onClick={() => void runAction(() => overridePublishExam(selected.id), "Entered marks published early.", "Publish entered marks now, before the exam schedule is complete? Students will see marks already entered; missing marks will remain unavailable, and staff evaluation will be locked.")}>Publish marks now</button>}
               </div>
             </div>
 
             <section className={`${panel} overflow-hidden`}>
-              <div className="border-b border-slate-200 p-4"><h3 className="font-semibold">Subjects and evaluator progress</h3></div>
+              <div className="border-b border-slate-200 p-4">
+                <h3 className="font-semibold">Subjects and evaluator progress</h3>
+                <p className="mt-1 text-xs text-slate-500">Assign an evaluator separately for each subject. Choose an active staff member on each row and save that subject’s assignment. Evaluators also need an active Staff user account linked to their profile.</p>
+              </div>
               {subjects.length === 0 ? <p className="p-6 text-sm text-slate-500">No subjects configured yet.</p> : <div className="overflow-x-auto">
                 <table className="w-full min-w-[950px] text-left text-sm">
                   <thead className="bg-slate-50 text-xs text-slate-500"><tr><th className="px-4 py-3">Subject</th><th className="px-3 py-3">Exam date</th><th className="px-3 py-3">Maximum</th><th className="px-3 py-3">Passing</th><th className="px-3 py-3">Evaluator</th><th className="px-3 py-3">Progress</th><th className="px-3 py-3">Status</th><th className="px-3 py-3">Action</th></tr></thead>
@@ -479,10 +498,10 @@ export default function AdminExam() {
                       <td className="px-3 py-2"><input type="date" className={inputClass} disabled={!editable || evaluatorOnly} value={draft.exam_date} onChange={(e) => updateSubjectDraft(subject.id, "exam_date", e.target.value)} /></td>
                       <td className="px-3 py-2"><input type="number" min="0.01" step="0.01" className={`${inputClass} w-24`} disabled={!editable || evaluatorOnly} value={draft.max_marks} onChange={(e) => updateSubjectDraft(subject.id, "max_marks", e.target.value)} /></td>
                       <td className="px-3 py-2"><input type="number" min="0" step="0.01" className={`${inputClass} w-24`} disabled={!editable || evaluatorOnly} value={draft.pass_marks} onChange={(e) => updateSubjectDraft(subject.id, "pass_marks", e.target.value)} /></td>
-                      <td className="px-3 py-2"><select className={`${inputClass} min-w-44`} disabled={!editable} value={draft.evaluator_staff_id} onChange={(e) => updateSubjectDraft(subject.id, "evaluator_staff_id", e.target.value)}>{staff.map((member) => <option key={member.id} value={member.id}>{member.name}</option>)}</select><small className="block text-xs text-slate-500">{subject.evaluator_name}</small></td>
+                      <td className="px-3 py-2"><select className={`${inputClass} min-w-44`} disabled={!editable} value={draft.evaluator_staff_id} onChange={(e) => updateSubjectDraft(subject.id, "evaluator_staff_id", e.target.value)}>{[...activeStaff, ...staff.filter((member) => String(member.id) === draft.evaluator_staff_id && member.status?.toLowerCase() !== "active")].map((member) => <option key={member.id} value={member.id}>{member.name}{member.status?.toLowerCase() === "active" ? "" : " (inactive — choose active staff)"}</option>)}</select><small className="block text-xs text-slate-500">{subject.evaluator_name}</small></td>
                       <td className="px-3 py-3">{subject.marked_count}/{subject.student_count} students</td>
                       <td className="px-3 py-3"><span className={`rounded px-2 py-1 text-xs ${statusClass(subject.evaluation_status)}`}>{subject.evaluation_status}</span></td>
-                      <td className="px-3 py-2"><div className="flex gap-2"><button className="text-indigo-700 underline disabled:text-slate-400" disabled={!editable || busy} onClick={() => void saveSubject(subject)}>Save</button>{selected.status === "draft" && <button aria-label={`Delete ${subject.subject_name}`} className="text-red-700" onClick={() => void runAction(() => deleteExamSubject(selected.id, subject.id), "Subject removed.", `Remove ${subject.subject_name}?`)}><Trash2 size={15} /></button>}</div></td>
+                      <td className="px-3 py-2"><div className="flex gap-2"><button aria-label={`Save assignment for ${subject.subject_name}`} className="text-indigo-700 underline disabled:text-slate-400" disabled={!editable || busy} onClick={() => void saveSubject(subject)}>{selected.status === "scheduled" ? "Save assignment" : "Save subject"}</button>{selected.status === "draft" && <button aria-label={`Delete ${subject.subject_name}`} className="text-red-700" onClick={() => void runAction(() => deleteExamSubject(selected.id, subject.id), "Subject removed.", `Remove ${subject.subject_name}?`)}><Trash2 size={15} /></button>}</div></td>
                     </tr>;
                   })}</tbody>
                 </table>
@@ -493,7 +512,7 @@ export default function AdminExam() {
                   <label className="text-xs font-medium text-slate-600">Max marks<input className={`${inputClass} mt-1`} type="number" min="0.01" step="0.01" value={subjectForm.max_marks} onChange={(e) => setSubjectForm({ ...subjectForm, max_marks: e.target.value })} /></label>
                   <label className="text-xs font-medium text-slate-600">Pass marks<input className={`${inputClass} mt-1`} type="number" min="0" step="0.01" value={subjectForm.pass_marks} onChange={(e) => setSubjectForm({ ...subjectForm, pass_marks: e.target.value })} /></label>
                   <label className="text-xs font-medium text-slate-600">Exam date<input className={`${inputClass} mt-1`} type="date" min={selected.start_date} max={selected.end_date} value={subjectForm.exam_date} onChange={(e) => setSubjectForm({ ...subjectForm, exam_date: e.target.value })} /></label>
-                  <label className="text-xs font-medium text-slate-600">Evaluator<select className={`${inputClass} mt-1`} required value={subjectForm.evaluator_staff_id} onChange={(e) => setSubjectForm({ ...subjectForm, evaluator_staff_id: e.target.value })}><option value="">Select staff</option>{staff.map((member) => <option key={member.id} value={member.id}>{member.name}</option>)}</select></label>
+                  <label className="text-xs font-medium text-slate-600">Evaluator<select className={`${inputClass} mt-1`} required value={subjectForm.evaluator_staff_id} onChange={(e) => setSubjectForm({ ...subjectForm, evaluator_staff_id: e.target.value })}><option value="">Select active staff</option>{activeStaff.map((member) => <option key={member.id} value={member.id}>{member.name}</option>)}</select></label>
                   <div className="sm:col-span-2 lg:col-span-6"><button className={primaryButton} disabled={busy}><Plus size={15} /> Add subject</button></div>
                 </form>
               )}
@@ -502,14 +521,30 @@ export default function AdminExam() {
             <section className={`${panel} overflow-hidden`}>
               <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 p-4">
                 <div><h3 className="font-semibold">Marks review</h3><p className="mt-1 text-xs text-slate-500">Review student marks; corrections are audited with a reason.</p></div>
-                <button className={secondaryButton} onClick={() => void runAction(() => getExamProgress(selected.id), "Progress refreshed.")}><RefreshCw size={15} /> Refresh progress</button>
+                <div className="flex flex-wrap items-center gap-2">
+                  <label className="flex items-center gap-2 text-sm font-medium text-slate-600">
+                    Subject
+                    <select
+                      aria-label="Filter marks by subject"
+                      className={inputClass}
+                      value={reviewSubjectId}
+                      onChange={(event) => setReviewSubjectId(event.target.value)}
+                    >
+                      <option value="">All subjects</option>
+                      {subjects.map((subject) => (
+                        <option key={subject.id} value={subject.subject_id}>{subject.subject_name}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <button className={secondaryButton} onClick={() => void runAction(() => getExamProgress(selected.id), "Progress refreshed.")}><RefreshCw size={15} /> Refresh progress</button>
+                </div>
               </div>
               {results.length === 0 ? <p className="p-6 text-sm text-slate-500">No marks are available for review yet.</p> : <div className="overflow-x-auto">
                 <table className="w-full min-w-[700px] text-left text-sm">
-                  <thead className="bg-slate-50 text-xs text-slate-500"><tr><th className="px-4 py-3">Student</th><th className="px-3 py-3">Roll number</th>{subjects.map((subject) => <th key={subject.id} className="px-3 py-3">{subject.subject_name}</th>)}</tr></thead>
+                  <thead className="bg-slate-50 text-xs text-slate-500"><tr><th className="px-4 py-3">Student</th><th className="px-3 py-3">Roll number</th>{reviewSubjects.map((subject) => <th key={subject.id} className="px-3 py-3">{subject.subject_name}</th>)}</tr></thead>
                   <tbody className="divide-y divide-slate-200">{results.map((student) => <tr key={student.student_id}>
                     <td className="px-4 py-3 font-medium">{student.student_name}</td><td className="px-3 py-3">{student.roll_number}</td>
-                    {subjects.map((subject) => {
+                    {reviewSubjects.map((subject) => {
                       const mark = student.subjects.find((item) => item.subject_id === subject.subject_id);
                       return <td key={subject.id} className="px-3 py-3">{mark ? <div className="flex items-center gap-2"><span>{mark.is_absent ? "Absent" : `${mark.marks_obtained ?? "—"} / ${mark.max_marks}`}{mark.remarks && <small className="block max-w-48 truncate text-xs text-slate-500" title={mark.remarks}>{mark.remarks}</small>}</span>{selected.status !== "draft" && <button className="text-xs text-indigo-700 underline" onClick={() => {
                         const value = window.prompt("Enter correction reason (required):");

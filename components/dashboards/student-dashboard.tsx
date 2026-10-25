@@ -34,6 +34,11 @@ import {
   type TimetableRecord,
 } from "../../lib/api";
 import type { StudentAttendanceReport } from "../../lib/attendanceApi";
+import {
+  getExamResults,
+  listStudentExams,
+  type ExamRecord,
+} from "../../lib/examApi";
 
 /* Statuses that count as "attended" in the trend chart.
    Change this if your backend calculates percentage differently. */
@@ -55,6 +60,10 @@ const STATUS_BADGE: Record<AttendanceStatus, string> = {
 
 const trendConfig = {
   value: { label: "Attendance", color: "#4f46e5" },
+} satisfies ChartConfig;
+
+const marksTrendConfig = {
+  value: { label: "Marks", color: "#16a34a" },
 } satisfies ChartConfig;
 
 const statusConfig = {
@@ -97,7 +106,7 @@ function Shell({ children }: { children: ReactNode }) {
 
 type TipProps = {
   active?: boolean;
-  payload?: Array<{ payload: { label: string; value: number } }>;
+  payload?: Array<{ payload: { label: string; value: number | null } }>;
   suffix?: string;
 };
 
@@ -109,17 +118,25 @@ function ValueTip({ active, payload, suffix = "" }: TipProps) {
     <div className="rounded border border-border bg-background px-2.5 py-1.5 text-xs">
       <p className="text-muted-foreground">{item.label}</p>
       <p className="font-bold">
-        {item.value}
-        {suffix}
+        {item.value === null ? "Marks unavailable" : `${item.value}${suffix}`}
       </p>
     </div>
   );
 }
 
+type MarksTrendPoint = {
+  label: string;
+  value: number | null;
+};
+
 export default function StudentDashboard({ user }: { user: CurrentUser }) {
   const [student, setStudent] = useState<{ name: string; grade: string | null; section: string | null } | null>(null);
   const [attendance, setAttendance] =
     useState<StudentAttendanceReport | null>(null);
+  const [academicYear, setAcademicYear] = useState("");
+  const [marksTrend, setMarksTrend] = useState<MarksTrendPoint[]>([]);
+  const [marksTrendLoading, setMarksTrendLoading] = useState(true);
+  const [marksTrendError, setMarksTrendError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -218,12 +235,72 @@ export default function StudentDashboard({ user }: { user: CurrentUser }) {
           records,
         };
 
+        setAcademicYear(academicYear);
         setStudent({
           name: user.username,
           grade: currentGrade?.grade ?? null,
           section: currentSection?.section ?? null,
         });
         setAttendance(report);
+
+        setMarksTrendLoading(true);
+        setMarksTrendError(null);
+        try {
+          const studentExams = await listStudentExams(0, 500);
+          const trendYear = academicYear || [...studentExams]
+            .map((exam) => exam.academic_year)
+            .sort((a, b) => b.localeCompare(a))[0] || "";
+          if (!academicYear && trendYear) setAcademicYear(trendYear);
+
+          const publishedExams = studentExams
+            .filter((exam) => exam.status === "published" && (!trendYear || exam.academic_year === trendYear))
+            .sort((a, b) => a.start_date.localeCompare(b.start_date) || a.id - b.id);
+          const examResults = await Promise.allSettled(
+            publishedExams.map((exam) => getExamResults(exam.id))
+          );
+          const trendPoints: MarksTrendPoint[] = examResults.map((examResult, index) => {
+            const exam = publishedExams[index];
+            if (examResult.status === "rejected") {
+              return { label: exam.name, value: null };
+            }
+
+            const ownResult = examResult.value.students.find(
+              (entry) => Number(entry.student_id) === Number(user.person_id)
+            );
+            if (!ownResult || !ownResult.subjects.length) {
+              return { label: exam.name, value: null };
+            }
+            if (ownResult.subjects.some((subject) => !subject.is_absent && subject.marks_obtained == null)) {
+              return { label: exam.name, value: null };
+            }
+
+            const totalMarks = ownResult.subjects.reduce(
+              (total, subject) => total + (subject.is_absent ? 0 : Number(subject.marks_obtained)),
+              0
+            );
+            const maximumMarks = ownResult.subjects.reduce(
+              (total, subject) => total + Number(subject.max_marks),
+              0
+            );
+            return {
+              label: exam.name,
+              value: maximumMarks > 0
+                ? Math.round((totalMarks / maximumMarks) * 1000) / 10
+                : null,
+            };
+          });
+          setMarksTrend(trendPoints);
+          const failedResults = examResults.filter((examResult) => examResult.status === "rejected").length;
+          if (failedResults > 0) {
+            setMarksTrendError(`Marks for ${failedResults} published exam${failedResults === 1 ? "" : "s"} could not be loaded.`);
+          }
+        } catch (marksError) {
+          setMarksTrendError(
+            marksError instanceof Error ? marksError.message : "Unable to load examination marks."
+          );
+        } finally {
+          setMarksTrendLoading(false);
+        }
       } catch (err) {
         setError(
           err instanceof Error ? err.message : "Failed to load student dashboard."
@@ -384,97 +461,156 @@ export default function StudentDashboard({ user }: { user: CurrentUser }) {
         </Card>
       )}
 
-      {attendance && attendance.records.length > 0 && (
+      {attendance && (
         <section
-          aria-label="Attendance analytics"
-          className="mb-3 grid gap-3 sm:mb-4 sm:gap-4 lg:grid-cols-3"
+          aria-label="Academic trends"
+          className="mb-3 grid gap-3 sm:mb-4 sm:gap-4 lg:grid-cols-2"
         >
-          <Card className={`${accentCardClass} lg:col-span-2`}>
+          <Card className={accentCardClass}>
             <CardContent className={cardBodyClass}>
               <h2 className={headingClass}>Attendance trend</h2>
               <p className="-mt-2 mb-3 text-xs text-slate-500">
                 Cumulative attendance percentage by class day
               </p>
-              <ChartContainer
-                config={trendConfig}
-                className="aspect-auto h-56 w-full sm:h-72"
-              >
-                <LineChart
-                  data={trendData}
-                  margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
+              {trendData.length > 0 ? (
+                <ChartContainer
+                  config={trendConfig}
+                  className="aspect-auto h-56 w-full sm:h-72"
                 >
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                  <XAxis
-                    dataKey="label"
-                    axisLine={false}
-                    tickLine={false}
-                    tickMargin={8}
-                    minTickGap={24}
-                  />
-                  <YAxis
-                    domain={[0, 100]}
-                    axisLine={false}
-                    tickLine={false}
-                    tickMargin={4}
-                    width={38}
-                    tickFormatter={(value) => `${value}%`}
-                  />
-                  <ChartTooltip content={<ValueTip suffix="%" />} />
-                  <Line
-                    type="monotone"
-                    dataKey="value"
-                    stroke="var(--color-value)"
-                    strokeWidth={2}
-                    dot={trendData.length <= 15 ? { r: 3 } : false}
-                    activeDot={{ r: 5 }}
-                  />
-                </LineChart>
-              </ChartContainer>
+                  <LineChart
+                    data={trendData}
+                    margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                    <XAxis
+                      dataKey="label"
+                      axisLine={false}
+                      tickLine={false}
+                      tickMargin={8}
+                      minTickGap={24}
+                    />
+                    <YAxis
+                      domain={[0, 100]}
+                      axisLine={false}
+                      tickLine={false}
+                      tickMargin={4}
+                      width={38}
+                      tickFormatter={(value) => `${value}%`}
+                    />
+                    <ChartTooltip content={<ValueTip suffix="%" />} />
+                    <Line
+                      type="monotone"
+                      dataKey="value"
+                      stroke="var(--color-value)"
+                      strokeWidth={2}
+                      dot={trendData.length <= 15 ? { r: 3 } : false}
+                      activeDot={{ r: 5 }}
+                    />
+                  </LineChart>
+                </ChartContainer>
+              ) : (
+                <p className="flex h-56 items-center justify-center text-sm text-slate-500 sm:h-72">
+                  No attendance trend available for this academic year.
+                </p>
+              )}
             </CardContent>
           </Card>
 
           <Card className={accentCardClass}>
             <CardContent className={cardBodyClass}>
-              <h2 className={headingClass}>Status breakdown</h2>
+              <h2 className={headingClass}>Marks trend</h2>
               <p className="-mt-2 mb-3 text-xs text-slate-500">
-                Number of classes by status
+                Published exam percentages{academicYear ? ` · ${academicYear}` : ""}
               </p>
-              <ChartContainer
-                config={statusConfig}
-                className="aspect-auto h-56 w-full sm:h-72"
-              >
-                <BarChart
-                  data={statusData}
-                  margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
-                >
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                  <XAxis
-                    dataKey="label"
-                    axisLine={false}
-                    tickLine={false}
-                    tickMargin={8}
-                  />
-                  <YAxis
-                    allowDecimals={false}
-                    axisLine={false}
-                    tickLine={false}
-                    tickMargin={4}
-                    width={28}
-                  />
-                  <ChartTooltip
-                    cursor={false}
-                    content={<ValueTip suffix=" classes" />}
-                  />
-                  <Bar dataKey="value" radius={[2, 2, 0, 0]} maxBarSize={40}>
-                    {statusData.map((item) => (
-                      <Cell key={item.label} fill={item.fill} />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ChartContainer>
+              {marksTrendLoading ? (
+                <p className="flex h-56 items-center justify-center text-sm text-slate-500 sm:h-72">
+                  Loading published exam marks…
+                </p>
+              ) : marksTrend.length > 0 ? (
+                <>
+                  <ChartContainer
+                    config={marksTrendConfig}
+                    className="aspect-auto h-56 w-full sm:h-72"
+                  >
+                    <LineChart
+                      data={marksTrend}
+                      margin={{ top: 8, right: 8, left: 0, bottom: 24 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                      <XAxis
+                        dataKey="label"
+                        axisLine={false}
+                        tickLine={false}
+                        tickMargin={8}
+                        interval={0}
+                        angle={-20}
+                        textAnchor="end"
+                        height={48}
+                      />
+                      <YAxis
+                        domain={[0, 100]}
+                        axisLine={false}
+                        tickLine={false}
+                        tickMargin={4}
+                        width={38}
+                        tickFormatter={(value) => `${value}%`}
+                      />
+                      <ChartTooltip content={<ValueTip suffix="%" />} />
+                      <Line
+                        type="monotone"
+                        dataKey="value"
+                        stroke="var(--color-value)"
+                        strokeWidth={2}
+                        connectNulls={false}
+                        dot={{ r: 4 }}
+                        activeDot={{ r: 5 }}
+                      />
+                    </LineChart>
+                  </ChartContainer>
+                  {marksTrendError && <p className="mt-2 text-xs text-amber-700" role="status">{marksTrendError}</p>}
+                </>
+              ) : (
+                <p className="flex h-56 items-center justify-center text-sm text-slate-500 sm:h-72">
+                  {marksTrendError ?? "No published exam marks available for this academic year."}
+                </p>
+              )}
             </CardContent>
           </Card>
         </section>
+      )}
+
+      {attendance && attendance.records.length > 0 && (
+        <Card className={`${cardClass} mb-3 sm:mb-4`}>
+          <CardContent className={cardBodyClass}>
+            <h2 className={headingClass}>Attendance status breakdown</h2>
+            <p className="-mt-2 mb-3 text-xs text-slate-500">Number of classes by status</p>
+            <ChartContainer
+              config={statusConfig}
+              className="aspect-auto h-56 w-full sm:h-72"
+            >
+              <BarChart
+                data={statusData}
+                margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                <XAxis dataKey="label" axisLine={false} tickLine={false} tickMargin={8} />
+                <YAxis
+                  allowDecimals={false}
+                  axisLine={false}
+                  tickLine={false}
+                  tickMargin={4}
+                  width={28}
+                />
+                <ChartTooltip cursor={false} content={<ValueTip suffix=" classes" />} />
+                <Bar dataKey="value" radius={[2, 2, 0, 0]} maxBarSize={40}>
+                  {statusData.map((item) => (
+                    <Cell key={item.label} fill={item.fill} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ChartContainer>
+          </CardContent>
+        </Card>
       )}
 
       {attendance && recentRecords.length > 0 && (

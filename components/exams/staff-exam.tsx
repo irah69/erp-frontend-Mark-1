@@ -34,7 +34,7 @@ function errorMessage(error: unknown) {
 function markDraft(student: ExamRosterStudent): MarkDraft {
   return {
     marks_obtained: student.marks_obtained == null ? "" : String(student.marks_obtained),
-    is_absent: student.is_absent,
+    is_absent: Boolean(student.is_absent),
     remarks: student.remarks ?? "",
   };
 }
@@ -119,8 +119,9 @@ export default function StaffExam() {
   async function saveStudent(student: ExamRosterStudent) {
     if (!selected) return;
     const draft = drafts[student.student_id] ?? markDraft(student);
-    const mark = draft.is_absent ? null : Number(draft.marks_obtained);
-    if (!draft.is_absent && (!draft.marks_obtained.trim() || !Number.isFinite(mark) || mark! < 0 || mark! > Number(selected.max_marks))) {
+    const isAbsent = Boolean(draft.is_absent);
+    const mark = isAbsent ? null : Number(draft.marks_obtained);
+    if (!isAbsent && (!draft.marks_obtained.trim() || !Number.isFinite(mark) || mark! < 0 || mark! > Number(selected.max_marks))) {
       setError(`Enter marks from 0 to ${selected.max_marks}, or mark the student absent.`);
       return;
     }
@@ -130,13 +131,13 @@ export default function StaffExam() {
     try {
       await saveAssignedStudentMark(selected.id, student.student_id, {
         marks_obtained: mark,
-        is_absent: draft.is_absent,
+        is_absent: isAbsent,
         remarks: draft.remarks.trim() || null,
       });
       const updatedStudent = {
         ...student,
         marks_obtained: mark,
-        is_absent: draft.is_absent,
+        is_absent: isAbsent,
         remarks: draft.remarks.trim() || null,
       };
       setStudents((current) => current.map((item) => item.student_id === student.student_id ? updatedStudent : item));

@@ -38,6 +38,15 @@ export type ExamSubject = {
   updated_at: string;
 };
 
+export type StudentExamSubject = {
+  subject_id: number;
+  subject_code: string;
+  subject_name: string;
+  max_marks: number | string;
+  pass_marks: number | string;
+  exam_date: string | null;
+};
+
 export type AssignedExamSubject = ExamSubject & {
   exam_name: string;
   academic_year: string;
@@ -116,6 +125,19 @@ export function listExams(params: {
 } = {}) {
   const query = queryString(params);
   return apiRequest<ExamRecord[]>(`/api/exams${query ? `?${query}` : ""}`, {
+    cache: "no-store",
+  });
+}
+
+export function listStudentExams(offset = 0, limit = 100) {
+  const query = queryString({ limit, offset });
+  return apiRequest<ExamRecord[]>(`/api/exams/student?${query}`, {
+    cache: "no-store",
+  });
+}
+
+export function listStudentExamSubjects(examId: number) {
+  return apiRequest<StudentExamSubject[]>(`/api/exams/student/${examId}/subjects`, {
     cache: "no-store",
   });
 }
@@ -205,6 +227,12 @@ export function scheduleExam(examId: number) {
 
 export function publishExam(examId: number) {
   return apiRequest<ExamRecord>(`/api/exams/${examId}/publish`, {
+    method: "POST",
+  });
+}
+
+export function overridePublishExam(examId: number) {
+  return apiRequest<ExamRecord>(`/api/exams/${examId}/publish-override`, {
     method: "POST",
   });
 }
