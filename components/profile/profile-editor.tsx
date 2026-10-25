@@ -138,6 +138,7 @@ export default function ProfileEditor({
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [cropSource, setCropSource] = useState<File | null>(null);
   const [cropPreviewUrl, setCropPreviewUrl] = useState<string | null>(null);
+  const cropPreviewUrlRef = useRef<string | null>(null);
   const [cropZoom, setCropZoom] = useState(1);
   const [cropOffset, setCropOffset] = useState({ x: 0, y: 0 });
   const [cropSaving, setCropSaving] = useState(false);
@@ -147,15 +148,16 @@ export default function ProfileEditor({
   const [uploadingImage, setUploadingImage] = useState(false);
   const imageInputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    if (!cropSource) {
-      setCropPreviewUrl(null);
-      return;
-    }
-    const url = URL.createObjectURL(cropSource);
-    setCropPreviewUrl(url);
-    return () => URL.revokeObjectURL(url);
-  }, [cropSource]);
+  useEffect(() => () => {
+    if (cropPreviewUrlRef.current) URL.revokeObjectURL(cropPreviewUrlRef.current);
+  }, []);
+
+  function clearCropSource() {
+    if (cropPreviewUrlRef.current) URL.revokeObjectURL(cropPreviewUrlRef.current);
+    cropPreviewUrlRef.current = null;
+    setCropPreviewUrl(null);
+    setCropSource(null);
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -282,6 +284,9 @@ export default function ProfileEditor({
       return;
     }
 
+    if (cropPreviewUrlRef.current) URL.revokeObjectURL(cropPreviewUrlRef.current);
+    cropPreviewUrlRef.current = URL.createObjectURL(file);
+    setCropPreviewUrl(cropPreviewUrlRef.current);
     setCropSource(file);
     setCropZoom(1);
     setCropOffset({ x: 0, y: 0 });
@@ -334,7 +339,7 @@ export default function ProfileEditor({
       );
       const name = cropSource.name.replace(/\.[^.]+$/, "") || "profile-photo";
       setSelectedImage(new File([blob], `${name}-cropped.jpg`, { type: "image/jpeg", lastModified: Date.now() }));
-      setCropSource(null);
+      clearCropSource();
       if (imageInputRef.current) imageInputRef.current.value = "";
     } catch (cropError) {
       setImageError(cropError instanceof Error ? cropError.message : "Unable to crop this image.");
@@ -395,13 +400,13 @@ export default function ProfileEditor({
             <section className="w-full max-w-md rounded-2xl bg-white p-5 shadow-2xl sm:p-6">
               <header className="mb-4 flex items-start justify-between gap-4">
                 <div><h2 id="profile-crop-title" className="text-lg font-semibold text-slate-900">Adjust your photo</h2><p className="mt-1 text-sm text-slate-500">Drag to reposition, then zoom for a clean square crop.</p></div>
-                <button type="button" onClick={() => { setCropSource(null); if (imageInputRef.current) imageInputRef.current.value = ""; }} className="rounded-full p-2 text-slate-500 hover:bg-slate-100" aria-label="Cancel photo crop"><X size={18} /></button>
+                <button type="button" onClick={() => { clearCropSource(); if (imageInputRef.current) imageInputRef.current.value = ""; }} className="rounded-full p-2 text-slate-500 hover:bg-slate-100" aria-label="Cancel photo crop"><X size={18} /></button>
               </header>
               <div ref={cropAreaRef} onPointerDown={startCropDrag} onPointerMove={moveCropDrag} onPointerUp={() => { dragRef.current = null; }} onPointerCancel={() => { dragRef.current = null; }} className="relative mx-auto aspect-square w-full max-w-[320px] touch-none cursor-grab overflow-hidden rounded-full bg-slate-100 active:cursor-grabbing">
-                <img ref={cropImageRef} src={cropPreviewUrl} alt="Photo crop preview" draggable={false} className="pointer-events-none absolute inset-0 size-full select-none object-cover" style={{ transform: `translate(${cropOffset.x}px, ${cropOffset.y}px) scale(${cropZoom})` }} />
+                <Image ref={cropImageRef} src={cropPreviewUrl} alt="Photo crop preview" fill unoptimized draggable={false} className="pointer-events-none select-none object-cover" style={{ transform: `translate(${cropOffset.x}px, ${cropOffset.y}px) scale(${cropZoom})` }} />
               </div>
               <label className="mt-5 flex items-center gap-3 text-sm text-slate-700"><ZoomIn size={17} className="shrink-0 text-indigo-600" /><span className="sr-only">Zoom photo</span><input type="range" min="1" max="3" step="0.01" value={cropZoom} onChange={(event) => setCropZoom(Number(event.target.value))} className="w-full accent-indigo-600" /><span className="w-10 text-right tabular-nums">{cropZoom.toFixed(1)}×</span></label>
-              <footer className="mt-6 flex justify-end gap-2"><button type="button" onClick={() => { setCropSource(null); if (imageInputRef.current) imageInputRef.current.value = ""; }} className="rounded-md border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">Cancel</button><button type="button" onClick={() => void confirmCrop()} disabled={cropSaving} className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-60">{cropSaving ? "Preparing…" : "Use this photo"}</button></footer>
+              <footer className="mt-6 flex justify-end gap-2"><button type="button" onClick={() => { clearCropSource(); if (imageInputRef.current) imageInputRef.current.value = ""; }} className="rounded-md border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">Cancel</button><button type="button" onClick={() => void confirmCrop()} disabled={cropSaving} className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-60">{cropSaving ? "Preparing…" : "Use this photo"}</button></footer>
             </section>
           </div>
         )}
