@@ -243,6 +243,12 @@ export type StudentAttendanceReport = {
   records: StudentAttendanceItem[];
 };
 
+export function getMyAttendanceReport(academicYear?: string) {
+  return getJson<StudentAttendanceReport>("/api/attendance/me", {
+    academic_year: academicYear,
+  });
+}
+
 export function getStudentReport(args: {
   rollNumber: string;
   gradeId?: number;

@@ -24,17 +24,11 @@ import type { CurrentUser } from "../../lib/auth";
 import {
   getAttendanceRecords,
   getClassSessions,
-  getSchedulingGrades,
-  getSchedulingSections,
-  getTimetables,
   type AttendanceStatus,
   type AttendanceRecord,
   type ClassSessionRecord,
-  type GradeOption,
-  type SectionOption,
-  type TimetableRecord,
 } from "../../lib/api";
-import type { StudentAttendanceReport } from "../../lib/attendanceApi";
+import { getMyAttendanceReport, type StudentAttendanceReport } from "../../lib/attendanceApi";
 import {
   getExamResults,
   listStudentExams,
@@ -150,12 +144,9 @@ export default function StudentDashboard({ user }: { user: CurrentUser }) {
           throw new Error("Student account is not linked to a student record.");
         }
 
-        const [attendanceResponse, sessions, timetables, grades, sections] = await Promise.all([
+        const [attendanceResponse, sessions] = await Promise.all([
           getAttendanceRecords(),
           getClassSessions(),
-          getTimetables(),
-          getSchedulingGrades(),
-          getSchedulingSections(),
         ]);
         const attendanceRecords: AttendanceRecord[] = attendanceResponse.filter(
           (record) => Number(record.student_id) === Number(user.person_id)
@@ -172,29 +163,10 @@ export default function StudentDashboard({ user }: { user: CurrentUser }) {
             Number(record.student_id) === Number(user.person_id) &&
             (!academicYear || record.academic_year === academicYear)
         );
+        const studentReport = await getMyAttendanceReport(academicYear || undefined).catch(() => null);
         const sessionsById = new Map<number, ClassSessionRecord>(
           sessions.map((session) => [session.id, session])
         );
-        const timetablesById = new Map<number, TimetableRecord>(
-          timetables.map((timetable) => [timetable.id, timetable])
-        );
-        const latestRecord = [...currentYearRecords].sort((a, b) => {
-          const dateA = sessionsById.get(a.session_id)?.session_date ?? "";
-          const dateB = sessionsById.get(b.session_id)?.session_date ?? "";
-          return dateB.localeCompare(dateA) || b.id - a.id;
-        })[0];
-        const latestSession = latestRecord
-          ? sessionsById.get(latestRecord.session_id)
-          : undefined;
-        const latestTimetable = latestSession
-          ? timetablesById.get(latestSession.timetable_id)
-          : undefined;
-        const currentGrade: GradeOption | undefined = latestTimetable?.grade_id
-          ? grades.find((grade) => Number(grade.id) === Number(latestTimetable.grade_id))
-          : undefined;
-        const currentSection: SectionOption | undefined = latestTimetable
-          ? sections.find((section) => Number(section.id) === Number(latestTimetable.section_id))
-          : undefined;
         const records = currentYearRecords.map((record) => {
           const session = sessionsById.get(record.session_id);
           return {
@@ -237,9 +209,9 @@ export default function StudentDashboard({ user }: { user: CurrentUser }) {
 
         setAcademicYear(academicYear);
         setStudent({
-          name: user.username,
-          grade: currentGrade?.grade ?? null,
-          section: currentSection?.section ?? null,
+          name: studentReport?.student.name ?? user.username,
+          grade: studentReport?.student.grade ?? null,
+          section: studentReport?.student.section ?? null,
         });
         setAttendance(report);
 
