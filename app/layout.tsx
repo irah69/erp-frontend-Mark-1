@@ -1,3 +1,4 @@
+
 import type { Metadata } from "next";
 import type { CSSProperties } from "react";
 import { Geist, Geist_Mono } from "next/font/google";
@@ -40,15 +41,61 @@ const designTokensStyle = {
   "--font-weight-medium": String(designSystem.type.weights.medium),
   "--font-weight-semibold": String(designSystem.type.weights.semibold),
   "--font-weight-bold": String(designSystem.type.weights.bold),
-  ...Object.fromEntries(designSystem.spacing.map((value, index) => [`--space-${index + 1}`, `${value}px`])),
+  ...Object.fromEntries(
+    designSystem.spacing.map((value, index) => [
+      `--space-${index + 1}`,
+      `${value}px`,
+    ]),
+  ),
 } as CSSProperties;
 
 export const metadata: Metadata = {
   title: "Student ERP",
   description: "Student and user management frontend",
+
+  icons: {
+    icon: [
+      {
+        url: "/favicon/favicon.ico",
+        type: "image/x-icon",
+      },
+      {
+        url: "/favicon/favicon-16x16.png",
+        sizes: "16x16",
+        type: "image/png",
+      },
+      {
+        url: "/favicon/favicon-32x32.png",
+        sizes: "32x32",
+        type: "image/png",
+      },
+      {
+        url: "/favicon/android-chrome-192x192.png",
+        sizes: "192x192",
+        type: "image/png",
+      },
+      {
+        url: "/favicon/android-chrome-512x512.png",
+        sizes: "512x512",
+        type: "image/png",
+      },
+    ],
+    apple: [
+      {
+        url: "/favicon/apple-touch-icon.png",
+        sizes: "180x180",
+        type: "image/png",
+      },
+    ],
+    shortcut: ["/favicon/favicon.ico"],
+  },
+
+  manifest: "/favicon/site.webmanifest",
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default function RootLayout({
+  children,
+}: LayoutProps<"/">) {
   return (
     <html
       lang="en"
@@ -60,16 +107,19 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <Script id="theme-initializer" strategy="beforeInteractive">
           {`try{var t=localStorage.getItem('solvane-theme')||'system';var d=t==='system'?(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'):t;var c=${JSON.stringify(designSystem.themes)};document.documentElement.dataset.themeMode=t;document.documentElement.dataset.theme=d;Object.entries(c[d]).forEach(function(e){document.documentElement.style.setProperty('--'+e[0],e[1])});var ch=${JSON.stringify(designSystem.charts)}[d];ch.series.forEach(function(v,i){document.documentElement.style.setProperty('--chart-'+(i+1),v)});Object.entries(ch.statuses).forEach(function(e){document.documentElement.style.setProperty('--chart-status-'+e[0],e[1])})}catch(e){}`}
         </Script>
+
         <ThemeProvider>
           <SessionGuard />
+
           <div className="group/shell min-h-dvh">
             <Sidebar />
+
             <main
-  className="
-    min-h-dvh w-full min-w-0
-    group-has-[#app-sidebar]/shell:pt-16
-    lg:group-has-[#app-sidebar]/shell:pt-0
-  "
+              className="
+                min-h-dvh w-full min-w-0
+                group-has-[#app-sidebar]/shell:pt-16
+                lg:group-has-[#app-sidebar]/shell:pt-0
+              "
             >
               {children}
             </main>
