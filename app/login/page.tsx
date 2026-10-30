@@ -260,6 +260,14 @@ export default function LoginPage() {
             </button>
           </motion.form>
 
+          {process.env.NODE_ENV === "development" && (
+            <aside className="mt-5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950" aria-label="Development test credentials">
+              <p className="font-semibold">Development server test account</p>
+              <p className="mt-1">Email: admin@gmail.com</p>
+              <p>Password: ram123</p>
+            </aside>
+          )}
+
 
 
         </motion.div>
